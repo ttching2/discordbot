@@ -1,6 +1,7 @@
 module discordbot
 
 go 1.15
+// +heroku goVersion go1.15
 
 require (
 	github.com/andersfylling/disgord v0.21.0

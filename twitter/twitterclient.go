@@ -20,14 +20,12 @@ type TwitterClient struct {
 }
 
 func NewClient(config TwitterClientConfig) *TwitterClient {
-	//TODO obviously replace these
 	consumerKey := config.ConsumerKey
 	consumerSecret := config.ConsumerSecret
 	accessToken := config.AccessToken
 	accessSecret := config.AccessSecret
 	oauthConfig := oauth1.NewConfig(consumerKey, consumerSecret)
 	token := oauth1.NewToken(accessToken, accessSecret)
-	// OAuth1 http.Client will automatically authorize Requests
 	httpClient := oauthConfig.Client(oauth1.NoContext, token)
 	client := twitter.NewClient(httpClient)
 	demux := twitter.NewSwitchDemux()
