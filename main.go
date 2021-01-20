@@ -135,12 +135,12 @@ func (bot *discordBot) reactionRoleCommand(s disgord.Session, data *disgord.Mess
 func (bot *discordBot) twitterFollowCommand(s disgord.Session, data *disgord.MessageCreate) {
 	msg := data.Message
 	command := strings.Split(msg.Content, " ")
-	if len(command) != 2 {
+	if len(command) != 3 {
 		msg.Reply(context.Background(), s, "Missing screen name of person to follow. Command use !twitter-follow screenName channel")
 		return
 	}
-	screenName := command[0]
-	channelName := command[1]
+	screenName := command[1]
+	channelName := command[2]
 
 	channels, _ := s.Guild(msg.GuildID).GetChannels()
 	for i := range channels {

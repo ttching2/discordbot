@@ -247,6 +247,8 @@ func (c *Client) SaveUserToFollow(twitterFollow botcommands.TwitterFollowCommand
 		log.Fatal(err)
 		return
 	}
+
+	tx.Commit()
 }
 
 func (c *Client) DeleteFollowedUser(screenName string, guild disgord.Snowflake) {
