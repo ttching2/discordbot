@@ -50,7 +50,7 @@ func (m *middlewareHolder) isReactMessageCommand(evt interface{}) interface{} {
 }
 
 func (m *middlewareHolder) isTwitterFollowCommand(evt interface{}) interface{} {
-	command := "!twitter-follow "
+	command := "!twitter-follow"
 	if e, ok := evt.(*disgord.MessageCreate); ok {
 		if e.Message.Content[:len(command)] != command {
 			return nil
@@ -62,7 +62,7 @@ func (m *middlewareHolder) isTwitterFollowCommand(evt interface{}) interface{} {
 }
 
 func (m *middlewareHolder) isTwitterFollowRemoveCommand(evt interface{}) interface{} {
-	command := "!twitter-follow-remove "
+	command := "!twitter-follow-remove"
 	if e, ok := evt.(*disgord.MessageCreate); ok {
 		if e.Message.Content[:len(command)] !=  command {
 			return nil
