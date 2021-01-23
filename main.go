@@ -35,8 +35,9 @@ type BotConfig struct {
 }
 
 type discordBot struct {
-	commands botcommands.Commands
+	saveableCommand botcommands.SaveableCommand
 	twitterClient *myTwitter.TwitterClient
+	commands map[string]botcommands.Command
 }
 
 func main() {
@@ -66,9 +67,19 @@ func main() {
 func initializeBot(client *disgord.Client, twitterClient *myTwitter.TwitterClient) discordBot {
 	dbClient := db.NewClient()
 	setupTwitterClient(client, dbClient, twitterClient)
+
+	commands := make(map[string]botcommands.Command)
+	commands[botcommands.RoleReactString] = botcommands.NewRoleReactCommand()
+	commands[botcommands.TwitterFollowString] = botcommands.NewTwitterFollowCommand(twitterClient)
+	commands[botcommands.TwitterFollowListString] = botcommands.NewTwitterFollowListCommand()
+	commands[botcommands.TwitterUnfollowString] = botcommands.NewTwitterUnfollowCommand(twitterClient)
+
+	commands[botcommands.HelpString] = botcommands.NewHelpCommand(commands)
+
 	return discordBot{
-		commands: dbClient,
+		saveableCommand: dbClient,
 		twitterClient: twitterClient,
+		commands: commands,
 	}
 }
 
@@ -83,17 +94,8 @@ func run(client *disgord.Client, bot discordBot) {
 		WithMiddleware(customMiddleWare.filterBotMsg, bot.commandInUse).
 		MessageCreate(bot.reactRoleMessage)
 	client.Gateway().
-		WithMiddleware(content.HasPrefix, customMiddleWare.isReactMessageCommand).
-		MessageCreate(bot.reactionRoleCommand)
-	client.Gateway().
-		WithMiddleware(content.HasPrefix, customMiddleWare.isTwitterFollowCommand).
-		MessageCreate(bot.twitterFollowCommand)
-	client.Gateway().
-		WithMiddleware(content.HasPrefix, customMiddleWare.isTwitterFollowListCommand).
-		MessageCreate(bot.twitterFollowList)
-	client.Gateway().
-		WithMiddleware(content.HasPrefix, customMiddleWare.isTwitterFollowRemoveCommand).
-		MessageCreate(bot.twitterUnfollowCommand)
+		WithMiddleware(customMiddleWare.filterBotMsg, content.StripPrefix, bot.isBotCommand).
+		MessageCreate(bot.ExecuteCommand)
 	client.Gateway().
 		WithMiddleware(customMiddleWare.filterOutBots, bot.reactionMessage).
 		MessageReactionAdd(bot.addRole)
@@ -121,63 +123,27 @@ func setupTwitterClient(client *disgord.Client, dbClient botcommands.SavedTwitte
 	twitterClient.SetTweetDemux(tweetHandler)
 }
 
-func (bot *discordBot) reactionRoleCommand(s disgord.Session, data *disgord.MessageCreate) {
-	msg := data.Message
-		
-	msg.Reply(context.Background(), s, "Which channel should this message be sent in.")
-	command := botcommands.CommandInProgress{
-		Guild: msg.GuildID,
-		User: msg.Author.ID,
-		Stage: 1 }
-	bot.commands.SaveCommandInProgress(msg.Author, command)
-}
-
-func (bot *discordBot) twitterFollowCommand(s disgord.Session, data *disgord.MessageCreate) {
-	msg := data.Message
-	command := strings.Split(msg.Content, " ")
-	if len(command) != 3 {
-		msg.Reply(context.Background(), s, "Missing screen name of person to follow. Command use !twitter-follow screenName channel")
-		return
-	}
-	screenName := command[1]
-	channelName := command[2]
-
-	channels, _ := s.Guild(msg.GuildID).GetChannels()
-	for i := range channels {
-		if channels[i].Name == channelName {
-			twitterFollowCommand := botcommands.TwitterFollowCommand{
-				ScreenName: screenName,
-				Channel: channels[i].ID,
-				Guild: msg.GuildID,
-			}
-			bot.commands.SaveUserToFollow(twitterFollowCommand)
-			bot.twitterClient.AddUserToTrack(screenName)
-			return
+func (bot *discordBot) isBotCommand(evt interface{}) interface{} {
+	if e, ok := evt.(*disgord.MessageCreate); ok {
+		splitContent := strings.Split(e.Message.Content, " ")
+		if _, ok := bot.commands[splitContent[0]]; !ok {
+			return nil
 		}
 	}
-	msg.Reply(context.Background(), s, "Channel not found")
+	return evt
 }
 
-func (bot *discordBot)  twitterFollowList(s disgord.Session, data *disgord.MessageCreate) {
-	followList := ""
-	followsInGuild := bot.commands.GetAllFollowedUsersInServer(data.Message.GuildID)
-	for i := range followsInGuild{
-		followList +=  followsInGuild[i].ScreenName + "\n"
-	}
-
-	data.Message.Reply(context.Background(), s, "Following:\n" + followList)
-}
-
-func (bot *discordBot) twitterUnfollowCommand(s disgord.Session, data *disgord.MessageCreate) {
+func (bot *discordBot) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate) {
 	msg := data.Message
-	userToUnfollow := msg.Content
-	bot.commands.DeleteFollowedUser(userToUnfollow, msg.GuildID)
+	command := strings.Split(msg.Content, " ")
+	//TODO could be done better :/
+	bot.commands[command[0]].ExecuteCommand(s, data, bot.saveableCommand)
 }
 
 func (bot *discordBot) reactRoleMessage(s disgord.Session, data *disgord.MessageCreate) {
 	msg := data.Message
 
-	commandInProgress := bot.commands.GetCommandInProgress(msg.Author)
+	commandInProgress := bot.saveableCommand.GetCommandInProgress(msg.Author)
 	switch commandInProgress.Stage {
 	case 1:
 		//stage 1 ask for channel
@@ -187,12 +153,12 @@ func (bot *discordBot) reactRoleMessage(s disgord.Session, data *disgord.Message
 				commandInProgress.Channel = channels[i].ID
 				msg.Reply(context.Background(), s, "Enter role to be assigned")
 				commandInProgress.Stage = 2
-				bot.commands.SaveCommandInProgress(msg.Author, *commandInProgress)
+				bot.saveableCommand.SaveCommandInProgress(msg.Author, *commandInProgress)
 				return
 			}
 		}
 		msg.Reply(context.Background(), s, "Channel not found. Aborting command.")
-		bot.commands.RemoveCommandProgress(msg.Author.ID)
+		bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
 	case 2:
 		//stage 2 ask for role
 		roles, _ := s.Guild(msg.GuildID).GetRoles()
@@ -201,12 +167,12 @@ func (bot *discordBot) reactRoleMessage(s disgord.Session, data *disgord.Message
 				commandInProgress.Role = roles[i].ID
 				msg.Reply(context.Background(), s, "Enter reaction to use.")
 				commandInProgress.Stage = 3
-				bot.commands.SaveCommandInProgress(msg.Author, *commandInProgress)
+				bot.saveableCommand.SaveCommandInProgress(msg.Author, *commandInProgress)
 				return
 			}
 		}
 		msg.Reply(context.Background(), s, "Role not found. Aborting command.")
-		bot.commands.RemoveCommandProgress(msg.Author.ID)
+		bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
 	case 3:
 		//stage 3 ask for reaction
 		emojis, _ := s.Guild(msg.GuildID).GetEmojis()
@@ -216,12 +182,12 @@ func (bot *discordBot) reactRoleMessage(s disgord.Session, data *disgord.Message
 				commandInProgress.Emoji = emojis[i].ID
 				msg.Reply(context.Background(), s, "Enter message to use")
 				commandInProgress.Stage = 4
-				bot.commands.SaveCommandInProgress(msg.Author, *commandInProgress)
+				bot.saveableCommand.SaveCommandInProgress(msg.Author, *commandInProgress)
 				return
 			}
 		}
 		msg.Reply(context.Background(), s, "Reaction not found. Aborting command.")
-		bot.commands.RemoveCommandProgress(msg.Author.ID)
+		bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
 	case 4:
 		//stage 4 ask for message
 		channels, _ := s.Guild(msg.GuildID).GetChannels()
@@ -246,8 +212,8 @@ func (bot *discordBot) reactRoleMessage(s disgord.Session, data *disgord.Message
 			Guild: commandInProgress.Guild,
 			Role: commandInProgress.Role,
 			Emoji: commandInProgress.Emoji}
-		bot.commands.SaveRoleCommand(botMsg.ID, roleCommand)
-		bot.commands.RemoveCommandProgress(msg.Author.ID)
+		bot.saveableCommand.SaveRoleCommand(botMsg.ID, roleCommand)
+		bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
 	default:
 		//error
 	}
@@ -255,13 +221,13 @@ func (bot *discordBot) reactRoleMessage(s disgord.Session, data *disgord.Message
 
 func (bot *discordBot) addRole(s disgord.Session, data *disgord.MessageReactionAdd) {
 	userID := data.UserID
-	command := bot.commands.GetRoleCommand(data.MessageID)
+	command := bot.saveableCommand.GetRoleCommand(data.MessageID)
 	s.Guild(command.Guild).Member(userID).AddRole(command.Role)
 }
 
 func (bot *discordBot) removeRole(s disgord.Session, data *disgord.MessageReactionRemove) {
 	userID := data.UserID
-	command := bot.commands.GetRoleCommand(data.MessageID)
+	command := bot.saveableCommand.GetRoleCommand(data.MessageID)
 	s.Guild(command.Guild).Member(userID).RemoveRole(command.Role)
 }
 

@@ -2,9 +2,8 @@ package databaseclient
 
 import (
 	"database/sql"
-	"log"
-
 	"discordbot/botcommands"
+	"log"
 
 	"github.com/andersfylling/disgord"
 	_ "github.com/mattn/go-sqlite3"
