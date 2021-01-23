@@ -4,46 +4,11 @@ import (
 	"github.com/andersfylling/disgord"
 )
 
-/*
- */
-type InProgressCommands interface {
-	SaveCommandInProgress(user *disgord.User, commmand CommandInProgress)
-	SaveRoleCommand(msgID disgord.Snowflake, roleCommand CompletedRoleCommand)
-	IsUserUsingCommand(user *disgord.User) bool
-	GetCommandInProgress(user *disgord.User) *CommandInProgress
-	RemoveCommandProgress(user disgord.Snowflake)
-}
-
 type TwitterFollowCommand struct {
 	TwitterFollowCommandID int
 	ScreenName string
 	Channel disgord.Snowflake
 	Guild disgord.Snowflake
-}
-
-type SavedTwitterFollowCommand interface {
-	GetFollowedUser(screenName string) []TwitterFollowCommand
-	SaveUserToFollow(twitterFollow TwitterFollowCommand)
-	DeleteFollowedUser(screenName string, guild disgord.Snowflake)
-	GetAllFollowedUsersInServer(guild disgord.Snowflake) []TwitterFollowCommand
-}
-
-/*
-
-*/
-type SavedRoleCommands interface {
-	IsRoleCommandMessage(msg disgord.Snowflake, emoji disgord.Snowflake) bool
-	GetRoleCommand(msg disgord.Snowflake) *CompletedRoleCommand
-	// RemoveRoleReactCommand()
-}
-
-/*
-Commands - interface for all commands? or maybe just role commands
-*/
-type Commands interface {
-	InProgressCommands
-	SavedRoleCommands
-	SavedTwitterFollowCommand
 }
 
 /*
@@ -67,4 +32,39 @@ type CompletedRoleCommand struct {
 	Guild disgord.Snowflake
 	Role disgord.Snowflake
 	Emoji disgord.Snowflake
+}
+
+/*
+SaveableCommand - interface for all commands? or maybe just role commands
+*/
+type SaveableCommand interface {
+	InProgressCommands
+	SavedRoleCommands
+	SavedTwitterFollowCommand
+}
+
+/*
+ */
+type InProgressCommands interface {
+	SaveCommandInProgress(user *disgord.User, commmand CommandInProgress)
+	SaveRoleCommand(msgID disgord.Snowflake, roleCommand CompletedRoleCommand)
+	IsUserUsingCommand(user *disgord.User) bool
+	GetCommandInProgress(user *disgord.User) *CommandInProgress
+	RemoveCommandProgress(user disgord.Snowflake)
+}
+
+type SavedTwitterFollowCommand interface {
+	GetFollowedUser(screenName string) []TwitterFollowCommand
+	SaveUserToFollow(twitterFollow TwitterFollowCommand)
+	DeleteFollowedUser(screenName string, guild disgord.Snowflake)
+	GetAllFollowedUsersInServer(guild disgord.Snowflake) []TwitterFollowCommand
+}
+
+/*
+
+*/
+type SavedRoleCommands interface {
+	IsRoleCommandMessage(msg disgord.Snowflake, emoji disgord.Snowflake) bool
+	GetRoleCommand(msg disgord.Snowflake) *CompletedRoleCommand
+	// RemoveRoleReactCommand()
 }

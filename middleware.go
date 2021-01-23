@@ -9,7 +9,7 @@ type middlewareHolder struct {
 
 func (bot *discordBot) commandInUse(evt interface{}) interface{} {
 	if msg, ok := evt.(*disgord.MessageCreate); ok {
-		if !bot.commands.IsUserUsingCommand(msg.Message.Author) {
+		if !bot.saveableCommand.IsUserUsingCommand(msg.Message.Author) {
 			return nil
 		}
 	}
@@ -29,58 +29,11 @@ func (m *middlewareHolder) filterBotMsg(evt interface{}) interface{} {
 
 func (bot *discordBot) reactionMessage(evt interface{}) interface{} {
 	if e, ok := evt.(*disgord.MessageReactionAdd); ok {
-		if !bot.commands.IsRoleCommandMessage(e.MessageID, e.PartialEmoji.ID) {
+		if !bot.saveableCommand.IsRoleCommandMessage(e.MessageID, e.PartialEmoji.ID) {
 			return nil
 		}
 	}
 
-	return evt
-}
-
-func (m *middlewareHolder) isReactMessageCommand(evt interface{}) interface{} {
-	command := "!react"
-	if e, ok := evt.(*disgord.MessageCreate); ok {
-		if e.Message.Content[:len(command)] != command {
-			return nil
-		}
-	}
-
-	stripCommand(evt, command)
-	return evt
-}
-
-func (m *middlewareHolder) isTwitterFollowCommand(evt interface{}) interface{} {
-	command := "!twitter-follow"
-	if e, ok := evt.(*disgord.MessageCreate); ok {
-		if e.Message.Content[:len(command)] != command {
-			return nil
-		}
-	}
-
-	stripCommand(evt, command)
-	return evt
-}
-
-func (m *middlewareHolder) isTwitterFollowRemoveCommand(evt interface{}) interface{} {
-	command := "!twitter-follow-remove"
-	if e, ok := evt.(*disgord.MessageCreate); ok {
-		if e.Message.Content[:len(command)] !=  command {
-			return nil
-		}
-	}
-
-	stripCommand(evt, command)
-	return evt
-}
-
-func (m *middlewareHolder) isTwitterFollowListCommand(evt interface{}) interface{} {
-	command := "!twitter-follow-list"
-	if e, ok := evt.(*disgord.MessageCreate); ok {
-		if e.Message.Content[:len(command)] != command {
-			return nil
-		}
-	}
-	stripCommand(evt, command)
 	return evt
 }
 
@@ -94,7 +47,7 @@ func (m *middlewareHolder) filterOutBots(evt interface{}) interface{} {
 	return evt
 }
 
-func stripCommand(evt interface{}, command string) {
+func StripCommand(evt interface{}, command string) {
 	msg := getMsg(evt)
 	msg.Content = msg.Content[len(command):]
 }
