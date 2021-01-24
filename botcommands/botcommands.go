@@ -7,6 +7,7 @@ import (
 type TwitterFollowCommand struct {
 	TwitterFollowCommandID int
 	ScreenName string
+	ScreenNameID string
 	Channel disgord.Snowflake
 	Guild disgord.Snowflake
 }
@@ -58,6 +59,7 @@ type SavedTwitterFollowCommand interface {
 	SaveUserToFollow(twitterFollow TwitterFollowCommand)
 	DeleteFollowedUser(screenName string, guild disgord.Snowflake)
 	GetAllFollowedUsersInServer(guild disgord.Snowflake) []TwitterFollowCommand
+	GetAllUniqueFollowedUsers() []TwitterFollowCommand
 }
 
 /*

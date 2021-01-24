@@ -219,7 +219,7 @@ func (c *Client) GetFollowedUser(screenName string) []botcommands.TwitterFollowC
 }
 
 func (c *Client) SaveUserToFollow(twitterFollow botcommands.TwitterFollowCommand) {
-	const query = `INSERT INTO twitter_follow_command(screen_name, channel, guild) VALUES (?, ?, ?);`
+	const query = `INSERT INTO twitter_follow_command(screen_name, channel, guild, screen_name_id) VALUES (?, ?, ?, ?);`
 
 	tx, err := c.client.Begin()
 
@@ -240,7 +240,8 @@ func (c *Client) SaveUserToFollow(twitterFollow botcommands.TwitterFollowCommand
 	_, err = stmt.Exec(
 		twitterFollow.ScreenName, 
 		twitterFollow.Channel,
-		twitterFollow.Guild)
+		twitterFollow.Guild,
+		twitterFollow.ScreenNameID)
 
 	if err != nil {
 		log.Fatal(err)
@@ -282,6 +283,27 @@ func (c *Client) GetAllFollowedUsersInServer(guild disgord.Snowflake) []botcomma
 			&row.ScreenName,
 			&row.Channel,
 			&row.Guild)
+		completedCommand = append(completedCommand, row)
+	}
+
+	return completedCommand
+}
+
+func (c *Client) GetAllUniqueFollowedUsers() []botcommands.TwitterFollowCommand {
+	const query = `SELECT DISTINCT screen_name_id FROM twitter_follow_command WHERE screen_name_id IS NOT NULL;`
+
+	rows, _ := c.client.Query(query)
+	if rows.Err() != nil {
+		log.Fatal(rows.Err())
+		return []botcommands.TwitterFollowCommand{}
+	}
+
+	completedCommand := []botcommands.TwitterFollowCommand{}
+
+	for rows.Next() {
+		row := botcommands.TwitterFollowCommand{}
+		rows.Scan(
+			&row.ScreenNameID)
 		completedCommand = append(completedCommand, row)
 	}
 

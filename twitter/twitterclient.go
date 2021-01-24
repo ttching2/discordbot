@@ -49,10 +49,14 @@ func (c *TwitterClient) SearchForUser(user string) string {
 	return users[0].IDStr
 }
 
-func (c *TwitterClient) AddUserToTrack(user string) bool {
+func (c *TwitterClient) AddUsersToTrack(users []string) {
+	c.streamFilterParams.Follow = append(c.streamFilterParams.Follow, users...)
+	c.StartFilterStream()
+}
+
+func (c *TwitterClient) AddUserToTrack(user string) {
 	c.streamFilterParams.Follow = append(c.streamFilterParams.Follow, user)
 	c.StartFilterStream()
-	return true
 }
 
 func (c *TwitterClient) RemoveUserFromFollowList(user string) {

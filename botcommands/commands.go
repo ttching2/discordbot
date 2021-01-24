@@ -86,16 +86,17 @@ func (r *twitterFollowCommand) ExecuteCommand(s disgord.Session, data *disgord.M
 	channels, _ := s.Guild(msg.GuildID).GetChannels()
 	for _, channel := range channels {
 		if channel.Name == channelName {
-			twitterFollowCommand := TwitterFollowCommand{
-				ScreenName: screenName,
-				Channel: channel.ID,
-				Guild: msg.GuildID,
-			}
-
 			userID := r.twitterClient.SearchForUser(screenName)
 			if userID == "" {
 				msg.React(context.Background(), s, "👎")
 				msg.Reply(context.Background(), s, "Twitter screen name not found.")
+			}
+
+			twitterFollowCommand := TwitterFollowCommand{
+				ScreenName: screenName,
+				Channel: channel.ID,
+				Guild: msg.GuildID,
+				ScreenNameID: userID,
 			}
 			r.twitterClient.AddUserToTrack(userID)
 			saveableCommand.SaveUserToFollow(twitterFollowCommand)
