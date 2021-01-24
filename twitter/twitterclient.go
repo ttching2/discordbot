@@ -41,27 +41,27 @@ func (c *TwitterClient) SetTweetDemux(fnc func(tweet *twitter.Tweet)) {
 	c.demux.Tweet = fnc
 }
 
-func (c *TwitterClient) SearchForUser(user string) string {
-	users, _, _ := c.Client.Users.Lookup(&twitter.UserLookupParams{ScreenName: []string{user}})
+func (c *TwitterClient) SearchForUser(screenName string) string {
+	users, _, _ := c.Client.Users.Lookup(&twitter.UserLookupParams{ScreenName: []string{screenName}})
 	if len(users) != 1 {
 		return ""
 	}
 	return users[0].IDStr
 }
 
-func (c *TwitterClient) AddUsersToTrack(users []string) {
-	c.streamFilterParams.Follow = append(c.streamFilterParams.Follow, users...)
+func (c *TwitterClient) AddUsersToTrack(userIDs []string) {
+	c.streamFilterParams.Follow = append(c.streamFilterParams.Follow, userIDs...)
 	c.StartFilterStream()
 }
 
-func (c *TwitterClient) AddUserToTrack(user string) {
-	c.streamFilterParams.Follow = append(c.streamFilterParams.Follow, user)
+func (c *TwitterClient) AddUserToTrack(userID string) {
+	c.streamFilterParams.Follow = append(c.streamFilterParams.Follow, userID)
 	c.StartFilterStream()
 }
 
-func (c *TwitterClient) RemoveUserFromFollowList(user string) {
+func (c *TwitterClient) RemoveUserFromFollowList(userID string) {
 	for i := range c.streamFilterParams.Follow {
-		if c.streamFilterParams.Follow[i] == user {
+		if c.streamFilterParams.Follow[i] == userID {
 			c.streamFilterParams.Follow = append(c.streamFilterParams.Follow[:i], c.streamFilterParams.Follow[i+1:]...)
 			c.StartFilterStream()
 			return
