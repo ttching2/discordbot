@@ -71,6 +71,8 @@ func NewTwitterFollowCommand(twitterClient *myTwitter.TwitterClient) Command {
 
 func (r *twitterFollowCommand) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate, saveableCommand SaveableCommand) {
 	msg := data.Message
+	
+	
 	command := strings.Split(msg.Content, " ")
 	if len(command) != 3 {
 		msg.Reply(context.Background(), s, "Missing screen name of person to follow. Command use !twitter-follow screenName channel")
@@ -87,12 +89,20 @@ func (r *twitterFollowCommand) ExecuteCommand(s disgord.Session, data *disgord.M
 				Channel: channel.ID,
 				Guild: msg.GuildID,
 			}
+
+			userID := r.twitterClient.SearchForUser(screenName)
+			if userID == "" {
+				msg.React(context.Background(), s, "👎")
+				msg.Reply(context.Background(), s, "Twitter screen name not found.")
+			}
+			r.twitterClient.AddUserToTrack(userID)
 			saveableCommand.SaveUserToFollow(twitterFollowCommand)
-			r.twitterClient.AddUserToTrack(screenName)
+			msg.React(context.Background(), s, "👍")
 			return
 		}
 	}
-	msg.Reply(context.Background(), s, "Channel not found")
+	msg.React(context.Background(), s, "👎")
+	msg.Reply(context.Background(), s, "Channel not found.")
 }
 
 type twitterUnfollowCommand struct {
@@ -114,6 +124,7 @@ func (r *twitterUnfollowCommand) ExecuteCommand(s disgord.Session, data *disgord
 	msg := data.Message
 	userToUnfollow := msg.Content
 	saveableCommand.DeleteFollowedUser(userToUnfollow, msg.GuildID)
+	msg.React(context.Background(), s, "👍")
 }
 
 type twitterFollowListCommand struct {
