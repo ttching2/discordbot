@@ -41,12 +41,16 @@ func (c *TwitterClient) SetTweetDemux(fnc func(tweet *twitter.Tweet)) {
 	c.demux.Tweet = fnc
 }
 
-func (c *TwitterClient) AddUserToTrack(user string) bool {
+func (c *TwitterClient) SearchForUser(user string) string {
 	users, _, _ := c.Client.Users.Lookup(&twitter.UserLookupParams{ScreenName: []string{user}})
 	if len(users) != 1 {
-		return false
+		return ""
 	}
-	c.streamFilterParams.Follow = append(c.streamFilterParams.Follow, users[0].IDStr)
+	return users[0].IDStr
+}
+
+func (c *TwitterClient) AddUserToTrack(user string) bool {
+	c.streamFilterParams.Follow = append(c.streamFilterParams.Follow, user)
 	c.StartFilterStream()
 	return true
 }
