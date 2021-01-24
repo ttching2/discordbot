@@ -125,8 +125,24 @@ func NewTwitterUnfollowCommand(twitterClient *myTwitter.TwitterClient) Command {
 
 func (r *twitterUnfollowCommand) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate, saveableCommand SaveableCommand) {
 	msg := data.Message
-	userToUnfollow := msg.Content
-	saveableCommand.DeleteFollowedUser(userToUnfollow, msg.GuildID)
+	command := strings.Split(msg.Content, " ")
+
+	if len(command) < 2 {
+		msg.Reply(context.Background(), s, "No screen name given.")
+	}
+
+	saveableCommand.DeleteFollowedUser(command[1], msg.GuildID)
+	
+	followedUsers := saveableCommand.GetAllUniqueFollowedUsers()
+	for _, user := range followedUsers {
+		if user.ScreenName == command[1] {
+			msg.React(context.Background(), s, "👍")
+			return
+		}
+	}
+	
+	userID := r.twitterClient.SearchForUser(command[1])
+	r.twitterClient.RemoveUserFromFollowList(userID)
 	msg.React(context.Background(), s, "👍")
 }
 
