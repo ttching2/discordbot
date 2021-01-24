@@ -87,7 +87,7 @@ func run(client *disgord.Client, bot discordBot) {
 
 	content, _ := std.NewMsgFilter(context.Background(), client)
 	customMiddleWare, _ := newMiddlewareHolder(context.Background(), client)
-	content.SetPrefix("!")
+	content.SetPrefix(botcommands.CommandPrefix)
 
 	// listen for messages
 	client.Gateway().

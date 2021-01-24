@@ -9,6 +9,8 @@ import (
 	"github.com/andersfylling/disgord"
 )
 
+const CommandPrefix = "!"
+
 const TwitterFollowString = "twitter-follow"
 const TwitterUnfollowString = "twitter-unfollow"
 const TwitterFollowListString = "twitter-follow-list"
@@ -37,7 +39,7 @@ func NewRoleReactCommand() Command {
 	r := &roleReactCommand {
 		baseCommand: baseCommand{
 			Name: RoleReactString,
-			Description: "!react - Creates a message with a reaction added by the bot. Anyone reacting to the message will receive a role attached to the message.",
+			Description: CommandPrefix + "react - Creates a message with a reaction added by the bot. Anyone reacting to the message will receive a role attached to the message.",
 		},
 	}
 	return r
@@ -63,7 +65,7 @@ func NewTwitterFollowCommand(twitterClient *myTwitter.TwitterClient) Command {
 	return &twitterFollowCommand{
 		baseCommand: baseCommand{
 			Name: TwitterFollowString,
-			Description: "!twitter-follow - Tells the bot to follow a twitter screen name and posts new tweets into a specified channel.",
+			Description: CommandPrefix + "twitter-follow - Tells the bot to follow a twitter screen name and posts new tweets into a specified channel.",
 		},
 		twitterClient: twitterClient,
 	}
@@ -114,7 +116,7 @@ func NewTwitterUnfollowCommand(twitterClient *myTwitter.TwitterClient) Command {
 	return &twitterUnfollowCommand{
 		baseCommand: baseCommand{
 			Name: TwitterUnfollowString,
-			Description: "!twitter-unfollow - Unfollow a twitter user and stop receiving posts.",
+			Description: CommandPrefix + "twitter-unfollow - Unfollow a twitter user and stop receiving posts.",
 		},
 		twitterClient: twitterClient,
 	}
@@ -135,7 +137,7 @@ func NewTwitterFollowListCommand() Command {
 	return &twitterFollowListCommand{
 		baseCommand: baseCommand{
 			Name: TwitterFollowListString,
-			Description: "!twitter-follow-list - List all users currently being followed.",
+			Description: CommandPrefix + "twitter-follow-list - List all users currently being followed.",
 		},
 	}
 }
