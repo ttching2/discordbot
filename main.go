@@ -114,13 +114,25 @@ func setupTwitterClient(client *disgord.Client, dbClient botcommands.SavedTwitte
 		newMessageParams := &disgord.CreateMessageParams {
 			Content: discordMessage,
 		}
+
 		twitterFollowCommands := dbClient.GetFollowedUser(tweet.User.ScreenName)
+
+		if twitterFollowCommands == nil {
+			return
+		}
+		
 		for i := range twitterFollowCommands {
 			client.Channel(twitterFollowCommands[i].Channel).CreateMessage(newMessageParams)
 		}
 		
 	}
 	twitterClient.SetTweetDemux(tweetHandler)
+
+	var followedUsers []string
+	for _, followed := range dbClient.GetAllUniqueFollowedUsers() {
+		followedUsers = append(followedUsers, followed.ScreenNameID)
+	}
+	twitterClient.AddUsersToTrack(followedUsers)
 }
 
 func (bot *discordBot) isBotCommand(evt interface{}) interface{} {
