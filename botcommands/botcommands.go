@@ -68,5 +68,5 @@ type SavedTwitterFollowCommand interface {
 type SavedRoleCommands interface {
 	IsRoleCommandMessage(msg disgord.Snowflake, emoji disgord.Snowflake) bool
 	GetRoleCommand(msg disgord.Snowflake) *CompletedRoleCommand
-	// RemoveRoleReactCommand()
+	RemoveRoleReactCommand(msg disgord.Snowflake)
 }

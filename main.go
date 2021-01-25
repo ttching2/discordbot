@@ -97,6 +97,9 @@ func run(client *disgord.Client, bot discordBot) {
 		WithMiddleware(customMiddleWare.filterBotMsg, content.StripPrefix, bot.isBotCommand).
 		MessageCreate(bot.ExecuteCommand)
 	client.Gateway().
+		WithMiddleware(bot.reactionMessage).
+		MessageDelete(bot.removeReactRoleMessage)
+	client.Gateway().
 		WithMiddleware(customMiddleWare.filterOutBots, bot.reactionMessage).
 		MessageReactionAdd(bot.addRole)
 	client.Gateway().
@@ -120,7 +123,7 @@ func setupTwitterClient(client *disgord.Client, dbClient botcommands.SavedTwitte
 		if twitterFollowCommands == nil {
 			return
 		}
-		
+
 		for i := range twitterFollowCommands {
 			client.Channel(twitterFollowCommands[i].Channel).CreateMessage(newMessageParams)
 		}
@@ -150,6 +153,10 @@ func (bot *discordBot) ExecuteCommand(s disgord.Session, data *disgord.MessageCr
 	command := strings.Split(msg.Content, " ")
 	//TODO could be done better :/
 	bot.commands[command[0]].ExecuteCommand(s, data, bot.saveableCommand)
+}
+
+func (bot *discordBot) removeReactRoleMessage(s disgord.Session, data *disgord.MessageDelete) {
+	bot.saveableCommand.RemoveRoleReactCommand(data.MessageID)
 }
 
 func (bot *discordBot) reactRoleMessage(s disgord.Session, data *disgord.MessageCreate) {
@@ -231,6 +238,7 @@ func (bot *discordBot) reactRoleMessage(s disgord.Session, data *disgord.Message
 	}
 }
 
+//Bot role needs to be above role to give the role.
 func (bot *discordBot) addRole(s disgord.Session, data *disgord.MessageReactionAdd) {
 	userID := data.UserID
 	command := bot.saveableCommand.GetRoleCommand(data.MessageID)
