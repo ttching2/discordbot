@@ -194,6 +194,20 @@ func (c *Client) GetRoleCommand(msg disgord.Snowflake) *botcommands.CompletedRol
 	return &completedRoleCommand
 }
 
+func (c *Client) RemoveRoleReactCommand(msg disgord.Snowflake) {
+	const query = `DELETE FROM role_message_command WHERE msg = ?`
+
+	result, err := c.client.Exec(query, msg)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if num, _ := result.RowsAffected(); num < 1 {
+		log.Fatal("Error in DELETE QUERY. No rows removed.")
+	}
+}
+
 func (c *Client) GetFollowedUser(screenName string) []botcommands.TwitterFollowCommand {
 	const query = `SELECT * FROM twitter_follow_command WHERE screen_name = ?;`
 
