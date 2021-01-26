@@ -225,7 +225,8 @@ func (c *Client) GetFollowedUser(screenName string) []botcommands.TwitterFollowC
 			&row.TwitterFollowCommandID,
 			&row.ScreenName,
 			&row.Channel,
-			&row.Guild)
+			&row.Guild,
+			&row.ScreenNameID)
 		completedCommand = append(completedCommand, row)
 	}
 
