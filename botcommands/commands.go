@@ -2,9 +2,14 @@ package botcommands
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"strings"
+	"time"
 
+	"discordbot/strawpoll"
 	myTwitter "discordbot/twitter"
+	"discordbot/util"
 
 	"github.com/andersfylling/disgord"
 )
@@ -15,6 +20,7 @@ const TwitterFollowString = "twitter-follow"
 const TwitterUnfollowString = "twitter-unfollow"
 const TwitterFollowListString = "twitter-follow-list"
 const RoleReactString = "react"
+const StrawPollDeadlineString = "strawpoll-deadline"
 const HelpString = "help"
 
 type baseCommand struct {
@@ -168,6 +174,81 @@ func (r *twitterFollowListCommand) ExecuteCommand(s disgord.Session, data *disgo
 
 	data.Message.Reply(context.Background(), s, "Following:\n" + followList)
 }
+
+type strawPollDeadlineCommand struct {
+	strawPollClient *strawpoll.Client
+	baseCommand
+}
+
+func NewStrawPollCommand(strawpollClient *strawpoll.Client) Command {
+	return &strawPollDeadlineCommand{
+		strawPollClient: strawpollClient,
+		baseCommand: baseCommand {
+			Name: "strawpoll-deadline",
+			Description: "!strawpoll-deadline {strawpoll-link} {channel} {role-mention}. Command to ping users the completiong and result of strawpoll.",
+		},
+	}
+}
+
+func (r *strawPollDeadlineCommand) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate, saveableCommand SaveableCommand) {
+	msg := data.Message
+
+	split := strings.Split(msg.Content, " ")
+	if len(split) != 4 {
+		msg.Reply(context.Background(), s, "Incorrect number of arguments for command.")
+		return
+	}
+
+	u, err := url.Parse(split[1])
+	if err != nil {
+		msg.Reply(context.Background(), s, "Error processing strawpoll url.")
+		return
+	}
+
+	pollID := u.Path[1:]
+	poll, _ := r.strawPollClient.GetPoll(pollID)
+
+	now := time.Now()
+	if now.After(poll.Content.Deadline) {
+		msg.Reply(context.Background(), s, "Could not set timer for poll. Deadline either missing or deadline has passed.")
+		return
+	}
+
+	channelName := split[2]
+	channels, _:= s.Guild(msg.GuildID).GetChannels()
+	channel := util.FindChannelByName(channelName, channels)
+
+	roleName := split[3]
+	roles, _ := s.Guild(msg.GuildID).GetRoles()
+	role := util.FindRoleByName(roleName, roles)
+
+	deadlineDuration := poll.Content.Deadline.Sub(now)
+	timeToWait := time.NewTimer(deadlineDuration)
+
+	strawpollDeadline := saveableCommand.SaveStrawpollDeadline(&StrawpollDeadline{
+		Guild: msg.GuildID,
+		Channel: channel.ID,
+		Role: role.ID,
+		StrawpollID: pollID,
+	})
+	go func() {
+		<-timeToWait.C
+		poll, _ := r.strawPollClient.GetPoll(pollID)
+		pollAnswers := poll.Content.Poll.PollAnswers
+		topAnswer := pollAnswers[0]
+		for _, answer := range pollAnswers {
+			if answer.Votes > topAnswer.Votes {
+				topAnswer = answer
+			}
+		}
+		result := fmt.Sprintf("%s Strawpoll has closed. The top vote for %s is %s with %d votes.", role.Mention(), poll.Content.Title, topAnswer.Answer, topAnswer.Votes)
+		s.Channel(channel.ID).CreateMessage(&disgord.CreateMessageParams{Content: result})
+		saveableCommand.DeleteStrawpollDeadlineByID(strawpollDeadline.StrawpollDeadlineID)
+	}()
+
+	msg.React(context.Background(), s, "👍")
+}
+
 
 type helpCommand struct {
 	Commands []Command
