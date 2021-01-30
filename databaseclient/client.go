@@ -324,3 +324,83 @@ func (c *Client) GetAllUniqueFollowedUsers() []botcommands.TwitterFollowCommand 
 
 	return completedCommand
 }
+
+func (c *Client) SaveStrawpollDeadline(strawpollDeadline *botcommands.StrawpollDeadline) *botcommands.StrawpollDeadline {
+	const query = `INSERT INTO strawpoll_deadline(strawpoll_id, guild, channel, role) VALUES (?, ?, ?, ?);`
+
+	tx, err := c.client.Begin()
+
+	if err != nil {
+		log.Fatal(err)
+		return nil
+	}
+
+	stmt, err := tx.Prepare(query)
+
+	if err != nil {
+		log.Fatal(err)
+		return nil
+	}
+
+	defer stmt.Close()
+
+	result , err := stmt.Exec(
+		strawpollDeadline.StrawpollID,
+		strawpollDeadline.Guild,
+		strawpollDeadline.Channel,
+		strawpollDeadline.Role)
+
+	if err != nil {
+		log.Fatal(err)
+		return nil
+	}
+
+	strawpollCommandId, _ := result.LastInsertId()
+	if err != nil {
+		log.Fatal(err)
+		return nil
+	}
+	tx.Commit()
+
+	strawpollDeadline.StrawpollDeadlineID = strawpollCommandId
+	return strawpollDeadline
+}
+
+func (c *Client) GetAllStrawpollDeadlines() []*botcommands.StrawpollDeadline {
+	const query = `SELECT * FROM strawpoll_deadline;`
+
+	rows, _ := c.client.Query(query)
+	if rows.Err() != nil {
+		log.Fatal(rows.Err())
+		return []*botcommands.StrawpollDeadline{}
+	}
+
+	completedCommand := []*botcommands.StrawpollDeadline{}
+
+	for rows.Next() {
+		row := botcommands.StrawpollDeadline{}
+		rows.Scan(
+			&row.StrawpollDeadlineID,
+			&row.StrawpollID,
+			&row.Guild,
+			&row.Channel,
+			&row.Role)
+		completedCommand = append(completedCommand, &row)
+	}
+
+	return completedCommand
+}
+
+func (c *Client) DeleteStrawpollDeadlineByID(ID int64) {
+	const query = `DELETE FROM strawpoll_deadline WHERE strawpoll_deadline_id = ?;`
+
+	result, err := c.client.Exec(query, ID)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if num, _ := result.RowsAffected(); num < 1 {
+		log.Fatal("Error in DELETE QUERY. No rows removed.")
+	}
+}

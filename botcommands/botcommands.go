@@ -5,7 +5,7 @@ import (
 )
 
 type TwitterFollowCommand struct {
-	TwitterFollowCommandID int
+	TwitterFollowCommandID int64
 	ScreenName string
 	ScreenNameID string
 	Channel disgord.Snowflake
@@ -16,7 +16,7 @@ type TwitterFollowCommand struct {
 CommandInProgress - track commands in progress of being made for role message
 */
 type CommandInProgress struct {
-	CommandInProgressID int
+	CommandInProgressID int64
 	Guild disgord.Snowflake
 	Channel disgord.Snowflake
 	User disgord.Snowflake
@@ -29,10 +29,18 @@ type CommandInProgress struct {
 CompletedRoleCommand - role messages to keep track of
 */
 type CompletedRoleCommand struct {
-	CompletedRoleCommandID int
+	CompletedRoleCommandID int64
 	Guild disgord.Snowflake
 	Role disgord.Snowflake
 	Emoji disgord.Snowflake
+}
+
+type StrawpollDeadline struct {
+	StrawpollDeadlineID int64
+	StrawpollID string
+	Guild disgord.Snowflake
+	Channel disgord.Snowflake
+	Role disgord.Snowflake
 }
 
 /*
@@ -42,6 +50,7 @@ type SaveableCommand interface {
 	InProgressCommands
 	SavedRoleCommands
 	SavedTwitterFollowCommand
+	StrawpollDeadlineRepository
 }
 
 /*
@@ -69,4 +78,10 @@ type SavedRoleCommands interface {
 	IsRoleCommandMessage(msg disgord.Snowflake, emoji disgord.Snowflake) bool
 	GetRoleCommand(msg disgord.Snowflake) *CompletedRoleCommand
 	RemoveRoleReactCommand(msg disgord.Snowflake)
+}
+
+type StrawpollDeadlineRepository interface {
+	SaveStrawpollDeadline(strawpollDeadline *StrawpollDeadline) *StrawpollDeadline
+	GetAllStrawpollDeadlines() []*StrawpollDeadline
+	DeleteStrawpollDeadlineByID(ID int64)
 }

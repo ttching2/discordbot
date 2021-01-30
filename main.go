@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"discordbot/botcommands"
 	db "discordbot/databaseclient"
+	"discordbot/strawpoll"
 	myTwitter "discordbot/twitter"
+	"discordbot/util"
 
 	"github.com/dghubble/go-twitter/twitter"
 
@@ -32,11 +35,13 @@ type discordConfig struct {
 type BotConfig struct {
 	DiscordConfig discordConfig
 	TwitterConfig myTwitter.TwitterClientConfig
+	StrawPollConfig strawpoll.StrawPollConfig
 }
 
 type discordBot struct {
 	saveableCommand botcommands.SaveableCommand
 	twitterClient *myTwitter.TwitterClient
+	strawpollClient *strawpoll.Client
 	commands map[string]botcommands.Command
 }
 
@@ -51,28 +56,35 @@ func main() {
 			AccessToken: os.Getenv("TWITTER_ACCESS_TOKEN"),
 			AccessSecret: os.Getenv("TWITTER_TOKEN_SECRET"),
 		},
+		StrawPollConfig: strawpoll.StrawPollConfig{
+			ApiKey: os.Getenv("STRAWPOLL_TOKEN"),
+		},
 	}
 	client := disgord.New(disgord.Config{
 		BotToken: botConfig.DiscordConfig.botToken,
 		Logger:   log, // optional logging
 		Cache:    &disgord.CacheNop{},
 	})
-
-	twitterClient := myTwitter.NewClient(botConfig.TwitterConfig)
 	
-	bot := initializeBot(client, twitterClient)
+	bot := initializeBot(client, botConfig)
 	run(client, bot)
 }
 
-func initializeBot(client *disgord.Client, twitterClient *myTwitter.TwitterClient) discordBot {
+func initializeBot(client *disgord.Client, config BotConfig) discordBot {
+	twitterClient := myTwitter.NewClient(config.TwitterConfig)
 	dbClient := db.NewClient()
+
 	setupTwitterClient(client, dbClient, twitterClient)
+	strawpollClient := strawpoll.New(config.StrawPollConfig)
+
+	restartStrawpollDeadlines(client, dbClient, strawpollClient)
 
 	commands := make(map[string]botcommands.Command)
 	commands[botcommands.RoleReactString] = botcommands.NewRoleReactCommand()
 	commands[botcommands.TwitterFollowString] = botcommands.NewTwitterFollowCommand(twitterClient)
 	commands[botcommands.TwitterFollowListString] = botcommands.NewTwitterFollowListCommand()
 	commands[botcommands.TwitterUnfollowString] = botcommands.NewTwitterUnfollowCommand(twitterClient)
+	commands[botcommands.StrawPollDeadlineString] = botcommands.NewStrawPollCommand(strawpollClient)
 
 	commands[botcommands.HelpString] = botcommands.NewHelpCommand(commands)
 
@@ -80,6 +92,7 @@ func initializeBot(client *disgord.Client, twitterClient *myTwitter.TwitterClien
 		saveableCommand: dbClient,
 		twitterClient: twitterClient,
 		commands: commands,
+		strawpollClient: strawpollClient,
 	}
 }
 
@@ -108,6 +121,39 @@ func run(client *disgord.Client, bot discordBot) {
 
 	// connect now, and disconnect on system interrupt
 	client.Gateway().StayConnectedUntilInterrupted()
+}
+
+func restartStrawpollDeadlines(client *disgord.Client, dbClient botcommands.StrawpollDeadlineRepository, strawpollClient *strawpoll.Client) {
+	for _, strawpoll := range dbClient.GetAllStrawpollDeadlines() {
+
+		poll, err := strawpollClient.GetPoll(strawpoll.StrawpollID)
+		if err != nil {
+			dbClient.DeleteStrawpollDeadlineByID(strawpoll.StrawpollDeadlineID)
+			continue
+		}
+
+		now := time.Now()
+		if now.After(poll.Content.Deadline) {
+			dbClient.DeleteStrawpollDeadlineByID(strawpoll.StrawpollDeadlineID)
+			continue
+		}
+
+		timeToWait := time.NewTimer(poll.Content.Deadline.Sub(now))
+		go func(strawpoll botcommands.StrawpollDeadline) {
+			<-timeToWait.C
+			poll, _ := strawpollClient.GetPoll(strawpoll.StrawpollID)
+			pollAnswers := poll.Content.Poll.PollAnswers
+			topAnswer := pollAnswers[0]
+			for _, answer := range pollAnswers {
+				if answer.Votes > topAnswer.Votes {
+					topAnswer = answer
+				}
+			}
+			result := fmt.Sprintf("<@&%s> Strawpoll has closed. The top vote for %s is %s with %d votes.", strawpoll.Role, poll.Content.Title, topAnswer.Answer, topAnswer.Votes)
+			client.Channel(strawpoll.Channel).CreateMessage(&disgord.CreateMessageParams{Content: result})
+			dbClient.DeleteStrawpollDeadlineByID(strawpoll.StrawpollDeadlineID)
+		}(*strawpoll)
+	}
 }
 
 func setupTwitterClient(client *disgord.Client, dbClient botcommands.SavedTwitterFollowCommand, twitterClient *myTwitter.TwitterClient) {
@@ -167,66 +213,57 @@ func (bot *discordBot) reactRoleMessage(s disgord.Session, data *disgord.Message
 	case 1:
 		//stage 1 ask for channel
 		channels, _ := s.Guild(msg.GuildID).GetChannels()
-		for i := range channels {
-			if channels[i].Name == msg.Content {
-				commandInProgress.Channel = channels[i].ID
-				msg.Reply(context.Background(), s, "Enter role to be assigned")
-				commandInProgress.Stage = 2
-				bot.saveableCommand.SaveCommandInProgress(msg.Author, *commandInProgress)
-				return
-			}
+		channel := util.FindChannelByName(msg.Content, channels)
+		if channel == nil {
+			msg.Reply(context.Background(), s, "Channel not found. Aborting command.")
+			bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
+			return 
 		}
-		msg.Reply(context.Background(), s, "Channel not found. Aborting command.")
-		bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
+		commandInProgress.Channel = channel.ID
+		msg.Reply(context.Background(), s, "Enter role to be assigned")
+		commandInProgress.Stage = 2
+		bot.saveableCommand.SaveCommandInProgress(msg.Author, *commandInProgress)
 	case 2:
 		//stage 2 ask for role
 		roles, _ := s.Guild(msg.GuildID).GetRoles()
-		for i := range roles {
-			if roles[i].Name == msg.Content {
-				commandInProgress.Role = roles[i].ID
-				msg.Reply(context.Background(), s, "Enter reaction to use.")
-				commandInProgress.Stage = 3
-				bot.saveableCommand.SaveCommandInProgress(msg.Author, *commandInProgress)
-				return
-			}
+		role := util.FindRoleByName(msg.Content, roles)
+		if role == nil {
+			msg.Reply(context.Background(), s, "Role not found. Aborting command.")
+			bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
+			return 
 		}
-		msg.Reply(context.Background(), s, "Role not found. Aborting command.")
-		bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
+		commandInProgress.Role = role.ID
+		msg.Reply(context.Background(), s, "Enter reaction to use.")
+		commandInProgress.Stage = 3
+		bot.saveableCommand.SaveCommandInProgress(msg.Author, *commandInProgress)
+		
 	case 3:
 		//stage 3 ask for reaction
 		emojis, _ := s.Guild(msg.GuildID).GetEmojis()
-		for i := range emojis {
-			emojiName := strings.Split(msg.Content, ":")
-			if emojis[i].Name == emojiName[1] {
-				commandInProgress.Emoji = emojis[i].ID
-				msg.Reply(context.Background(), s, "Enter message to use")
-				commandInProgress.Stage = 4
-				bot.saveableCommand.SaveCommandInProgress(msg.Author, *commandInProgress)
-				return
-			}
+		//TODO if it uses a unicode emoji we get a panik
+		emojiName := strings.Split(msg.Content, ":")
+		emoji := util.FindEmojiByName(emojiName[1], emojis)
+		if emoji == nil {
+			msg.Reply(context.Background(), s, "Reaction not found. Aborting command.")
+			bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
+			return 
 		}
-		msg.Reply(context.Background(), s, "Reaction not found. Aborting command.")
-		bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
+		commandInProgress.Emoji = emoji.ID
+		msg.Reply(context.Background(), s, "Enter message to use")
+		commandInProgress.Stage = 4
+		bot.saveableCommand.SaveCommandInProgress(msg.Author, *commandInProgress)
+		
 	case 4:
 		//stage 4 ask for message
 		channels, _ := s.Guild(msg.GuildID).GetChannels()
-		var commandChannel *disgord.Channel
-		for i := range channels {
-			if channels[i].ID == commandInProgress.Channel {
-				commandChannel = channels[i]
-			}
-		}
+		commandChannel := util.FindChannelByID(commandInProgress.Channel, channels)
 
 		botMsg, _ := commandChannel.SendMsg(context.Background(), s, msg)
 
 		emojis, _ := s.Guild(msg.GuildID).GetEmojis()
-		var emoji *disgord.Emoji
-		for i := range emojis {
-			if emojis[i].ID == commandInProgress.Emoji {
-				emoji = emojis[i]
-			}
-		}
+		emoji := util.FindEmojiByID(commandInProgress.Emoji, emojis)
 		botMsg.React(context.Background(), s, emoji)
+
 		roleCommand := botcommands.CompletedRoleCommand{
 			Guild: commandInProgress.Guild,
 			Role: commandInProgress.Role,
