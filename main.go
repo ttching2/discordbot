@@ -107,7 +107,7 @@ func run(client *disgord.Client, bot discordBot) {
 		WithMiddleware(customMiddleWare.filterBotMsg, bot.commandInUse).
 		MessageCreate(bot.reactRoleMessage)
 	client.Gateway().
-		WithMiddleware(customMiddleWare.filterBotMsg, content.StripPrefix, bot.isBotCommand).
+		WithMiddleware(customMiddleWare.filterBotMsg, content.StripPrefix, bot.isFromAdmin, bot.isBotCommand).
 		MessageCreate(bot.ExecuteCommand)
 	client.Gateway().
 		WithMiddleware(bot.reactionMessage).
@@ -182,6 +182,15 @@ func setupTwitterClient(client *disgord.Client, dbClient botcommands.SavedTwitte
 		followedUsers = append(followedUsers, followed.ScreenNameID)
 	}
 	twitterClient.AddUsersToTrack(followedUsers)
+}
+
+func (bot *discordBot) isFromAdmin(evt interface{}) interface{} {
+	if e, ok := evt.(*disgord.MessageCreate); ok {
+		if e.Message.Author.ID != 124343682382954498 {
+			return nil
+		}
+	}
+	return evt
 }
 
 func (bot *discordBot) isBotCommand(evt interface{}) interface{} {

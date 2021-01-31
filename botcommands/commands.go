@@ -14,7 +14,7 @@ import (
 	"github.com/andersfylling/disgord"
 )
 
-const CommandPrefix = "!"
+const CommandPrefix = "?"
 
 const TwitterFollowString = "twitter-follow"
 const TwitterUnfollowString = "twitter-unfollow"
