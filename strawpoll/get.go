@@ -38,7 +38,7 @@ type Creator struct {
 type Media struct {
 	Hash   string
 	Path   string
-	Unused bool
+	Unused int
 }
 
 type Poll struct {
