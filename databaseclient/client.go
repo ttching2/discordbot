@@ -14,7 +14,7 @@ type Client struct {
 }
 
 func NewClient() *Client {
-	client, err := sql.Open("sqlite3", "botdb")
+	client, err := sql.Open("sqlite3", "botdb?_foreign_keys=on")
 
 	if err != nil {
 		log.Fatal(err)

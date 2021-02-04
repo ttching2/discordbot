@@ -41,7 +41,7 @@ type roleReactCommand struct {
 	baseCommand
 }
 
-func NewRoleReactCommand() Command {
+func NewRoleReactCommand() *roleReactCommand {
 	r := &roleReactCommand {
 		baseCommand: baseCommand{
 			Name: RoleReactString,
