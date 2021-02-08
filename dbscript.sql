@@ -1,16 +1,19 @@
+PRAGMA foreign_keys = ON;
+
 CREATE TABLE IF NOT EXISTS users(
     users_id INTEGER PRIMARY KEY,
-    discord_users_id BIG INTEGER NOT NULL,
-    admin_perm BOOLEAN DEFAULT FALSE
+    discord_users_id BIG INTEGER NOT NULL UNIQUE,
+    is_admin BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS in_progress_role_command(
     in_progress_role_command_pk INTEGER PRIMARY KEY,
-    guild UNSIGNED BIG INT,
-    channel UNSIGNED BIG INT UNIQUE,
-    user UNSIGNED BIG INT UNIQUE,
-    role UNSIGNED BIG INT,
-    emoji USIGNED BIG INT,
+    guild BIG INT,
+    origin_channel BIG INT UNIQUE,
+    target_channel BIG INT,
+    user BIG INT UNIQUE,
+    role BIG INT,
+    emoji BIG INT,
     stage INTEGER);
 
 CREATE TABLE IF NOT EXISTS role_message_command(

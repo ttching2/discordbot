@@ -4,8 +4,8 @@ package twitterfollow_test
 
 import (
 	"database/sql"
-	"discordbot/databaseclient"
-	"discordbot/databaseclient/twitterfollow"
+	"discordbot/repositories"
+	"discordbot/repositories/twitterfollow"
 	"io/ioutil"
 	"log"
 	"reflect"
@@ -22,7 +22,7 @@ func initDB() *sql.DB {
 		log.Fatal(err)
 	}
 
-	client.Exec(`INSERT INTO users(users_id, discord_users_id) VALUES (1, 1234);`)
+	client.Exec(`INSERT INTO users(users_id, discord_users_id) VALUES (1234, 5678);`)
 
 	return client
 }
@@ -33,21 +33,27 @@ func TestGetFollowedUser(t *testing.T) {
 
 	repo := twitterfollow.New(db)
 
-	twitterFollow := databaseclient.TwitterFollowCommand{
+	twitterFollow := repositories.TwitterFollowCommand{
 		TwitterFollowCommandID: 1,
-		User: 1,
+		User: 1234,
 		ScreenName: "watson",
 		Channel: 1234,
 		Guild: 567,
 		ScreenNameID: "abs123",
 	}
-	db.Exec(`INSERT INTO twitter_follow_command(author, screen_name, channel, guild, screen_name_id) VALUES (?, ?, ?, ?, ?);`, 
+	_, err := db.Exec(`INSERT INTO twitter_follow_command(author, screen_name, channel, guild, screen_name_id) VALUES (?, ?, ?, ?, ?);`, 
 	&twitterFollow.User, &twitterFollow.ScreenName, &twitterFollow.Channel, &twitterFollow.Guild, &twitterFollow.ScreenNameID)
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	result := repo.GetFollowedUser(twitterFollow.ScreenName)
 
 	if len(result) != 1 {
 		t.Error("Wrong number of rows returned. Expected: 1, Got: ", len(result))
+		return
 	}
 
 	if !reflect.DeepEqual(twitterFollow, result[0]) {
@@ -61,8 +67,8 @@ func TestSaveUserToFollow(t *testing.T) {
 
 	repo := twitterfollow.New(db)
 
-	twitterFollow := databaseclient.TwitterFollowCommand{
-		User: 1,
+	twitterFollow := repositories.TwitterFollowCommand{
+		User: 1234,
 		ScreenName: "watson",
 		Channel: 1234,
 		Guild: 567,
@@ -75,7 +81,7 @@ func TestSaveUserToFollow(t *testing.T) {
 		return
 	}
 
-	result := databaseclient.TwitterFollowCommand{}
+	result := repositories.TwitterFollowCommand{}
 	row := db.QueryRow(`SELECT * FROM twitter_follow_command WHERE twitter_follow_command_id = 1;`)
 	err = row.Scan(
 		&result.TwitterFollowCommandID,
@@ -101,8 +107,8 @@ func TestDeleteFollowedUser(t *testing.T) {
 
 	repo := twitterfollow.New(db)
 
-	twitterFollow := databaseclient.TwitterFollowCommand{
-		User: 1,
+	twitterFollow := repositories.TwitterFollowCommand{
+		User: 1234,
 		ScreenName: "watson",
 		Channel: 1234,
 		Guild: 567,
@@ -132,25 +138,25 @@ func TestGetAllFollowedUsersInServer(t *testing.T) {
 
 	repo := twitterfollow.New(db)
 
-	twitterFollow1 := databaseclient.TwitterFollowCommand{
+	twitterFollow1 := repositories.TwitterFollowCommand{
 		TwitterFollowCommandID: 1,
-		User: 1,
+		User: 1234,
 		ScreenName: "watson",
 		Channel: 1234,
 		Guild: 567,
 		ScreenNameID: "abs123",
 	}
-	twitterFollow2 := databaseclient.TwitterFollowCommand{
+	twitterFollow2 := repositories.TwitterFollowCommand{
 		TwitterFollowCommandID: 2,
-		User: 1,
+		User: 1234,
 		ScreenName: "gura",
 		Channel: 12343,
 		Guild: 567,
 		ScreenNameID: "sdeg2312",
 	}
-	twitterFollow3 := databaseclient.TwitterFollowCommand{
+	twitterFollow3 := repositories.TwitterFollowCommand{
 		TwitterFollowCommandID: 3,
-		User: 1,
+		User: 1234,
 		ScreenName: "me",
 		Channel: 5423,
 		Guild: 654,
@@ -186,25 +192,25 @@ func TestGetAllUniqueFollowedUsers(t *testing.T) {
 
 	repo := twitterfollow.New(db)
 
-	twitterFollow1 := databaseclient.TwitterFollowCommand{
+	twitterFollow1 := repositories.TwitterFollowCommand{
 		TwitterFollowCommandID: 1,
-		User: 1,
+		User: 1234,
 		ScreenName: "watson",
 		Channel: 1234,
 		Guild: 567,
 		ScreenNameID: "abs123",
 	}
-	twitterFollow2 := databaseclient.TwitterFollowCommand{
+	twitterFollow2 := repositories.TwitterFollowCommand{
 		TwitterFollowCommandID: 2,
-		User: 1,
+		User: 1234,
 		ScreenName: "gura",
 		Channel: 12343,
 		Guild: 567,
 		ScreenNameID: "sdeg2312",
 	}
-	twitterFollow3 := databaseclient.TwitterFollowCommand{
+	twitterFollow3 := repositories.TwitterFollowCommand{
 		TwitterFollowCommandID: 3,
-		User: 1,
+		User: 1234,
 		ScreenName: "gura",
 		Channel: 5423,
 		Guild: 654,

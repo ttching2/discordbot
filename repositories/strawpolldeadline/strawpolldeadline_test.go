@@ -1,11 +1,11 @@
-// +build integration
+// build +integration
 
 package strawpolldeadline_test
 
 import (
 	"database/sql"
-	"discordbot/databaseclient"
-	"discordbot/databaseclient/strawpolldeadline"
+	"discordbot/repositories"
+	"discordbot/repositories/strawpolldeadline"
 	"io/ioutil"
 	"log"
 	"reflect"
@@ -23,7 +23,7 @@ func initDB() *sql.DB {
 		log.Fatal(err)
 	}
 
-	client.Exec(`INSERT INTO users(users_id, discord_users_id) VALUES (1, 1234);`)
+	client.Exec(`INSERT INTO users(users_id, discord_users_id) VALUES (1234, 5678);`)
 
 	return client
 }
@@ -34,18 +34,23 @@ func TestSaveStrawpollDeadline(t *testing.T) {
 
 	spDB := strawpolldeadline.New(db)
 
-	strawpolldeadline := databaseclient.StrawpollDeadline{
-		User: 1,
+	strawpolldeadline := repositories.StrawpollDeadline{
+		User: 1234,
 		StrawpollID: "abc",
 		Guild: 1234,
 		Channel: 5678,
 		Role: 1357,
 	}
-	spDB.SaveStrawpollDeadline(&strawpolldeadline)
+	err := spDB.SaveStrawpollDeadline(&strawpolldeadline)
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	row := db.QueryRow(`SELECT * FROM strawpoll_deadline WHERE strawpoll_deadline_id = 1`)
-	result := databaseclient.StrawpollDeadline{}
-	err := row.Scan(
+	result := repositories.StrawpollDeadline{}
+	err = row.Scan(
 		&result.StrawpollDeadlineID,
 		&result.User,
 		&result.StrawpollID,
@@ -56,6 +61,7 @@ func TestSaveStrawpollDeadline(t *testing.T) {
 
 	if err != nil {
 		t.Error(err)
+		return
 	}
 
 	if !reflect.DeepEqual(strawpolldeadline, result) {
@@ -69,7 +75,7 @@ func TestSaveWithNonExistantUser(t *testing.T) {
 
 	spDB := strawpolldeadline.New(db)
 
-	strawpolldeadline := databaseclient.StrawpollDeadline{
+	strawpolldeadline := repositories.StrawpollDeadline{
 		User: 2,
 		StrawpollID: "abc",
 		Guild: 1234,
@@ -90,17 +96,17 @@ func TestGetAllStrawpolls(t *testing.T) {
 
 	spDB := strawpolldeadline.New(db)
 
-	s1 := databaseclient.StrawpollDeadline{
+	s1 := repositories.StrawpollDeadline{
 		StrawpollDeadlineID: 1,
-		User: 1,
+		User: 1234,
 		StrawpollID: "abc",
 		Guild: 1234,
 		Channel: 5678,
 		Role: 1357,
 	}
-	s2 := databaseclient.StrawpollDeadline{
+	s2 := repositories.StrawpollDeadline{
 		StrawpollDeadlineID: 2,
-		User: 1,
+		User: 1234,
 		StrawpollID: "absd",
 		Guild: 1543,
 		Channel: 345623,
@@ -140,9 +146,9 @@ func TestDeleteStrawpollDeadline(t *testing.T) {
 
 	spDB := strawpolldeadline.New(db)
 
-	s1 := databaseclient.StrawpollDeadline{
+	s1 := repositories.StrawpollDeadline{
 		StrawpollDeadlineID: 1,
-		User: 1,
+		User: 1234,
 		StrawpollID: "abc",
 		Guild: 1234,
 		Channel: 5678,
@@ -158,7 +164,7 @@ func TestDeleteStrawpollDeadline(t *testing.T) {
 	spDB.DeleteStrawpollDeadlineByID(s1.StrawpollDeadlineID)
 
 	row := db.QueryRow(`SELECT * FROM strawpoll_deadline WHERE strawpoll_deadline_id = 1`)
-	result := databaseclient.StrawpollDeadline{}
+	result := repositories.StrawpollDeadline{}
 	err = row.Scan(
 		&result.StrawpollDeadlineID,
 		&result.User,

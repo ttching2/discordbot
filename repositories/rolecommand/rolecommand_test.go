@@ -4,8 +4,8 @@ package rolecommand_test
 
 import (
 	"database/sql"
-	"discordbot/databaseclient"
-	"discordbot/databaseclient/rolecommand"
+	"discordbot/repositories"
+	"discordbot/repositories/rolecommand"
 	"io/ioutil"
 	"log"
 	"reflect"
@@ -22,7 +22,7 @@ func initDB() *sql.DB {
 		log.Fatal(err)
 	}
 
-	client.Exec(`INSERT INTO users(users_id, discord_users_id) VALUES (1, 1234);`)
+	client.Exec(`INSERT INTO users(users_id, discord_users_id) VALUES (1234, 5678);`)
 
 	return client
 }
@@ -33,10 +33,10 @@ func TestSaveCommandInProgress(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	commandInProgress := databaseclient.CommandInProgress{
+	commandInProgress := repositories.CommandInProgress{
 		User: 13456,
 		Guild: 567,
-		Channel: 1234,
+		OriginChannel: 1234,
 		Role: 1234364,
 		Emoji: 23145,
 		Stage: 1,
@@ -48,12 +48,13 @@ func TestSaveCommandInProgress(t *testing.T) {
 		return
 	}
 
-	result := databaseclient.CommandInProgress{}
+	result := repositories.CommandInProgress{}
 	row := db.QueryRow(`SELECT * FROM in_progress_role_command WHERE in_progress_role_command_pk = 1;`)
 	err = row.Scan(
 		&result.CommandInProgressID,
 		&result.Guild,
-		&result.Channel,
+		&result.OriginChannel,
+		&result.TargetChannel,
 		&result.User,
 		&result.Role,
 		&result.Emoji,
@@ -74,8 +75,8 @@ func TestSaveRoleCommand(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	roleCommand := databaseclient.RoleCommand{
-		User: 1,
+	roleCommand := repositories.RoleCommand{
+		User: 1234,
 		Guild: 567,
 		Role: 1234364,
 		Emoji: 23145,
@@ -88,7 +89,7 @@ func TestSaveRoleCommand(t *testing.T) {
 		return
 	}
 
-	result := databaseclient.RoleCommand{}
+	result := repositories.RoleCommand{}
 	row := db.QueryRow(`SELECT * FROM role_message_command WHERE role_message_command_pk = 1;`)
 	err = row.Scan(
 		&result.RoleCommandID,
@@ -113,16 +114,16 @@ func TestIsUserUsingCommand(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	commandInProgress := databaseclient.CommandInProgress{
+	commandInProgress := repositories.CommandInProgress{
 		User: 13456,
 		Guild: 567,
-		Channel: 1234,
+		OriginChannel: 1234,
 		Role: 1234364,
 		Emoji: 23145,
 		Stage: 1,
 	}
 	repo.SaveCommandInProgress(&commandInProgress)
-	using := repo.IsUserUsingCommand(commandInProgress.User, commandInProgress.Channel)
+	using := repo.IsUserUsingCommand(commandInProgress.User, commandInProgress.OriginChannel)
 
 	if !using {
 		t.Error("User not found with in progress command.")
@@ -134,17 +135,17 @@ func TestGetCommandInProgress(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	commandInProgress := databaseclient.CommandInProgress{
+	commandInProgress := repositories.CommandInProgress{
 		User: 13456,
 		Guild: 567,
-		Channel: 1234,
+		OriginChannel: 1234,
 		Role: 1234364,
 		Emoji: 23145,
 		Stage: 1,
 	}
 	repo.SaveCommandInProgress(&commandInProgress)
 
-	result := repo.GetCommandInProgress(commandInProgress.User, commandInProgress.Channel)
+	result := repo.GetCommandInProgress(commandInProgress.User, commandInProgress.OriginChannel)
 
 	if !reflect.DeepEqual(result, commandInProgress) {
 		t.Error("Mismatched structs found while getting command in progress.")
@@ -157,16 +158,16 @@ func TestRemoveCommandProgress(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	commandInProgress := databaseclient.CommandInProgress{
+	commandInProgress := repositories.CommandInProgress{
 		User: 13456,
 		Guild: 567,
-		Channel: 1234,
+		OriginChannel: 1234,
 		Role: 1234364,
 		Emoji: 23145,
 		Stage: 1,
 	}
 	repo.SaveCommandInProgress(&commandInProgress)
-	err := repo.RemoveCommandProgress(commandInProgress.User, commandInProgress.Channel)
+	err := repo.RemoveCommandProgress(commandInProgress.User, commandInProgress.OriginChannel)
 
 	if err != nil {
 		t.Error("Error deleting in progress role command. ", err)
@@ -178,8 +179,8 @@ func TestIsRoleCommandMessage(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	roleCommand := databaseclient.RoleCommand{
-		User: 1,
+	roleCommand := repositories.RoleCommand{
+		User: 1234,
 		Guild: 567,
 		Role: 1234364,
 		Emoji: 23145,
@@ -202,8 +203,8 @@ func TestGetRoleCommand(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	roleCommand := databaseclient.RoleCommand{
-		User: 1,
+	roleCommand := repositories.RoleCommand{
+		User: 1234,
 		Guild: 567,
 		Role: 1234364,
 		Emoji: 23145,
@@ -226,8 +227,8 @@ func TestRemoveRoleReactCommand(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	roleCommand := databaseclient.RoleCommand{
-		User: 1,
+	roleCommand := repositories.RoleCommand{
+		User: 1234,
 		Guild: 567,
 		Role: 1234364,
 		Emoji: 23145,

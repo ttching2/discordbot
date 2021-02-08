@@ -2,19 +2,23 @@ package main
 
 import (
 	"context"
-	"errors"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
-	"time"
 
 	"discordbot/botcommands"
-	db "discordbot/databaseclient"
+	"discordbot/botcommands/discord"
+	"discordbot/botcommands/help"
+	"discordbot/botcommands/rolemessage"
+	"discordbot/botcommands/strawpolldeadline"
+	"discordbot/botcommands/twittercommands"
+	"discordbot/repositories/rolecommand"
+	strawpollrepo "discordbot/repositories/strawpolldeadline"
+	"discordbot/repositories/twitterfollow"
+	"discordbot/repositories/users_repository"
 	"discordbot/strawpoll"
 	myTwitter "discordbot/twitter"
-	"discordbot/util"
-
-	"github.com/dghubble/go-twitter/twitter"
 
 	"github.com/andersfylling/disgord"
 	"github.com/andersfylling/disgord/std"
@@ -39,10 +43,10 @@ type BotConfig struct {
 }
 
 type discordBot struct {
-	saveableCommand botcommands.SaveableCommand
 	twitterClient *myTwitter.TwitterClient
 	strawpollClient *strawpoll.Client
-	commands map[string]botcommands.Command
+	commands map[string]interface{}
+	customMiddleWare *middlewareHolder
 }
 
 func main() {
@@ -70,237 +74,109 @@ func main() {
 	run(client, bot)
 }
 
+func newSqlDb() *sql.DB {
+	client, err := sql.Open("sqlite3", "botdb?_foreign_keys=on")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return client
+}
+
 func initializeBot(client *disgord.Client, config BotConfig) discordBot {
 	twitterClient := myTwitter.NewClient(config.TwitterConfig)
-	dbClient := db.NewClient()
-
-	setupTwitterClient(client, dbClient, twitterClient)
 	strawpollClient := strawpoll.New(config.StrawPollConfig)
+	sqlDb := newSqlDb()
 
-	restartStrawpollDeadlines(client, dbClient, strawpollClient)
+	roleCommandRepository := rolecommand.New(sqlDb)
+	twitterCommandRepository := twitterfollow.New(sqlDb)
+	strawpollCommandRepository := strawpollrepo.New(sqlDb)
+	usersRepository := users_repository.New(sqlDb)
 
-	commands := make(map[string]botcommands.Command)
-	commands[botcommands.RoleReactString] = botcommands.NewRoleReactCommand()
-	commands[botcommands.TwitterFollowString] = botcommands.NewTwitterFollowCommand(twitterClient)
-	commands[botcommands.TwitterFollowListString] = botcommands.NewTwitterFollowListCommand()
-	commands[botcommands.TwitterUnfollowString] = botcommands.NewTwitterUnfollowCommand(twitterClient)
-	commands[botcommands.StrawPollDeadlineString] = botcommands.NewStrawPollCommand(strawpollClient)
+	twittercommands.RestartTwitterFollows(client, twitterCommandRepository, twitterClient)
+	
+	strawpolldeadline.RestartStrawpollDeadlines(client, strawpollCommandRepository, strawpollClient)
 
-	commands[botcommands.HelpString] = botcommands.NewHelpCommand(commands)
+	commands := make(map[string]interface{})
+	commands[rolemessage.RoleReactString] = rolemessage.New(roleCommandRepository)
+	commands[twittercommands.TwitterFollowString] = twittercommands.NewTwitterFollowCommand(twitterClient, twitterCommandRepository)
+	commands[twittercommands.TwitterFollowListString] = twittercommands.NewTwitterFollowListCommand(twitterCommandRepository)
+	commands[twittercommands.TwitterUnfollowString] = twittercommands.NewTwitterUnfollowCommand(twitterClient, twitterCommandRepository)
+	commands[strawpolldeadline.StrawPollDeadlineString] = strawpolldeadline.New(strawpollClient, strawpollCommandRepository)
+
+	var commandList []help.PrintHelp
+	for _, c := range commands {
+		commandList = append(commandList, c.(help.PrintHelp))
+	}
+	commands[help.HelpString] = help.New(commandList[:])
+
+	customMiddleWare, _ := newMiddlewareHolder(context.Background(), client, roleCommandRepository, usersRepository)
 
 	return discordBot{
-		saveableCommand: dbClient,
 		twitterClient: twitterClient,
 		commands: commands,
 		strawpollClient: strawpollClient,
+		customMiddleWare: customMiddleWare,
 	}
 }
 
 func run(client *disgord.Client, bot discordBot) {
 
 	content, _ := std.NewMsgFilter(context.Background(), client)
-	customMiddleWare, _ := newMiddlewareHolder(context.Background(), client)
 	content.SetPrefix(botcommands.CommandPrefix)
 
+	//TODO Find a better way for doing this
+	reactMessage := bot.commands[rolemessage.RoleReactString].(*rolemessage.RoleMessageCommand)
 	// listen for messages
 	client.Gateway().
-		WithMiddleware(customMiddleWare.filterBotMsg, bot.commandInUse).
-		MessageCreate(bot.reactRoleMessage)
+		WithMiddleware(bot.customMiddleWare.filterBotMsg, bot.customMiddleWare.commandInUse, bot.customMiddleWare.createMessageContentForNonCommand).
+		MessageCreate(bot.SpecialCase)
 	client.Gateway().
-		WithMiddleware(customMiddleWare.filterBotMsg, content.StripPrefix, bot.isFromAdmin, bot.isBotCommand).
+		WithMiddleware(bot.customMiddleWare.filterBotMsg, content.StripPrefix, bot.customMiddleWare.isFromAdmin, bot.customMiddleWare.checkAndSaveUser).
 		MessageCreate(bot.ExecuteCommand)
 	client.Gateway().
-		WithMiddleware(bot.reactionMessage).
-		MessageDelete(bot.removeReactRoleMessage)
+		WithMiddleware(bot.customMiddleWare.reactionMessage).
+		MessageDelete(reactMessage.RemoveReactRoleMessage)
 	client.Gateway().
-		WithMiddleware(customMiddleWare.filterOutBots, bot.reactionMessage).
-		MessageReactionAdd(bot.addRole)
+		WithMiddleware(bot.customMiddleWare.filterOutBots, bot.customMiddleWare.reactionMessage).
+		MessageReactionAdd(reactMessage.AddRole)
 	client.Gateway().
-		WithMiddleware(customMiddleWare.filterOutBots, bot.reactionMessage).
-		MessageReactionRemove(bot.removeRole)
+		WithMiddleware(bot.customMiddleWare.filterOutBots, bot.customMiddleWare.reactionMessage).
+		MessageReactionRemove(reactMessage.RemoveRole)
 
 	// connect now, and disconnect on system interrupt
 	client.Gateway().StayConnectedUntilInterrupted()
 }
 
-func restartStrawpollDeadlines(client *disgord.Client, dbClient botcommands.StrawpollDeadlineRepository, strawpollClient *strawpoll.Client) {
-	for _, strawpoll := range dbClient.GetAllStrawpollDeadlines() {
-
-		poll, err := strawpollClient.GetPoll(strawpoll.StrawpollID)
-		if err != nil {
-			dbClient.DeleteStrawpollDeadlineByID(strawpoll.StrawpollDeadlineID)
-			continue
-		}
-
-		now := time.Now()
-		if now.After(poll.Content.Deadline) {
-			dbClient.DeleteStrawpollDeadlineByID(strawpoll.StrawpollDeadlineID)
-			continue
-		}
-
-		timeToWait := time.NewTimer(poll.Content.Deadline.Sub(now))
-		go func(strawpoll botcommands.StrawpollDeadline) {
-			<-timeToWait.C
-			poll, _ := strawpollClient.GetPoll(strawpoll.StrawpollID)
-			pollAnswers := poll.Content.Poll.PollAnswers
-			topAnswer := pollAnswers[0]
-			for _, answer := range pollAnswers {
-				if answer.Votes > topAnswer.Votes {
-					topAnswer = answer
-				}
-			}
-			result := fmt.Sprintf("<@&%s> Strawpoll has closed. The top vote for %s is %s with %d votes.", strawpoll.Role, poll.Content.Title, topAnswer.Answer, topAnswer.Votes)
-			client.Channel(strawpoll.Channel).CreateMessage(&disgord.CreateMessageParams{Content: result})
-			dbClient.DeleteStrawpollDeadlineByID(strawpoll.StrawpollDeadlineID)
-		}(*strawpoll)
-	}
-}
-
-func setupTwitterClient(client *disgord.Client, dbClient botcommands.SavedTwitterFollowCommand, twitterClient *myTwitter.TwitterClient) {
-	tweetHandler := func(tweet *twitter.Tweet) {
-		discordMessage := fmt.Sprintf("New Tweet by %s https://www.twitter.com/%s/status/%s", tweet.User.Name, tweet.User.ScreenName, tweet.IDStr)
-
-		newMessageParams := &disgord.CreateMessageParams {
-			Content: discordMessage,
-		}
-
-		twitterFollowCommands := dbClient.GetFollowedUser(tweet.User.ScreenName)
-
-		if twitterFollowCommands == nil {
-			return
-		}
-
-		for i := range twitterFollowCommands {
-			client.Channel(twitterFollowCommands[i].Channel).CreateMessage(newMessageParams)
-		}
-		
-	}
-	twitterClient.SetTweetDemux(tweetHandler)
-
-	var followedUsers []string
-	for _, followed := range dbClient.GetAllUniqueFollowedUsers() {
-		followedUsers = append(followedUsers, followed.ScreenNameID)
-	}
-	twitterClient.AddUsersToTrack(followedUsers)
-}
-
-func (bot *discordBot) isFromAdmin(evt interface{}) interface{} {
-	if e, ok := evt.(*disgord.MessageCreate); ok {
-		if e.Message.Author.ID != 124343682382954498 {
-			return nil
-		}
-	}
-	return evt
-}
-
-func (bot *discordBot) isBotCommand(evt interface{}) interface{} {
-	if e, ok := evt.(*disgord.MessageCreate); ok {
-		splitContent := strings.Split(e.Message.Content, " ")
-		if _, ok := bot.commands[splitContent[0]]; !ok {
-			return nil
-		}
-	}
-	return evt
-}
-
 func (bot *discordBot) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate) {
 	msg := data.Message
-	command := strings.Split(msg.Content, " ")
+	middleWareContent := discord.MiddleWareContent{}
+	json.Unmarshal([]byte(msg.Content), &middleWareContent)
 	//TODO could be done better :/
-	bot.commands[command[0]].ExecuteCommand(s, data, bot.saveableCommand)
+	if _, ok := bot.commands[middleWareContent.Command]; !ok {
+		msg.Reply(context.Background(), s, fmt.Sprintf("Command %s not found", middleWareContent.Command))
+		return
+	}
+	bot.commands[middleWareContent.Command].(discord.MessageCreateHandler).ExecuteCommand(s, data, middleWareContent)
 }
 
-func (bot *discordBot) removeReactRoleMessage(s disgord.Session, data *disgord.MessageDelete) {
-	bot.saveableCommand.RemoveRoleReactCommand(data.MessageID)
-}
-
-func (bot *discordBot) reactRoleMessage(s disgord.Session, data *disgord.MessageCreate) {
+//TODO REDO THIS SOMEHOW :^(
+func (bot *discordBot) SpecialCase(s disgord.Session, data *disgord.MessageCreate) {
 	msg := data.Message
-
-	commandInProgress := bot.saveableCommand.GetCommandInProgress(msg.Author)
-	switch commandInProgress.Stage {
-	case 1:
-		//stage 1 ask for channel
-		channels, _ := s.Guild(msg.GuildID).GetChannels()
-		channel := util.FindChannelByName(msg.Content, channels)
-		if channel == nil {
-			msg.Reply(context.Background(), s, "Channel not found. Aborting command.")
-			bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
-			return 
-		}
-		commandInProgress.Channel = channel.ID
-		msg.Reply(context.Background(), s, "Enter role to be assigned")
-		commandInProgress.Stage = 2
-		bot.saveableCommand.SaveCommandInProgress(msg.Author, *commandInProgress)
-	case 2:
-		//stage 2 ask for role
-		roles, _ := s.Guild(msg.GuildID).GetRoles()
-		role := util.FindRoleByName(msg.Content, roles)
-		if role == nil {
-			msg.Reply(context.Background(), s, "Role not found. Aborting command.")
-			bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
-			return 
-		}
-		commandInProgress.Role = role.ID
-		msg.Reply(context.Background(), s, "Enter reaction to use.")
-		commandInProgress.Stage = 3
-		bot.saveableCommand.SaveCommandInProgress(msg.Author, *commandInProgress)
-		
-	case 3:
-		//stage 3 ask for reaction
-		emojis, _ := s.Guild(msg.GuildID).GetEmojis()
-		//TODO if it uses a unicode emoji we get a panik
-		emojiName := strings.Split(msg.Content, ":")
-		emoji := util.FindEmojiByName(emojiName[1], emojis)
-		if emoji == nil {
-			msg.Reply(context.Background(), s, "Reaction not found. Aborting command.")
-			bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
-			return 
-		}
-		commandInProgress.Emoji = emoji.ID
-		msg.Reply(context.Background(), s, "Enter message to use")
-		commandInProgress.Stage = 4
-		bot.saveableCommand.SaveCommandInProgress(msg.Author, *commandInProgress)
-		
-	case 4:
-		//stage 4 ask for message
-		channels, _ := s.Guild(msg.GuildID).GetChannels()
-		commandChannel := util.FindChannelByID(commandInProgress.Channel, channels)
-
-		botMsg, _ := commandChannel.SendMsg(context.Background(), s, msg)
-
-		emojis, _ := s.Guild(msg.GuildID).GetEmojis()
-		emoji := util.FindEmojiByID(commandInProgress.Emoji, emojis)
-		botMsg.React(context.Background(), s, emoji)
-
-		roleCommand := botcommands.CompletedRoleCommand{
-			Guild: commandInProgress.Guild,
-			Role: commandInProgress.Role,
-			Emoji: commandInProgress.Emoji}
-		bot.saveableCommand.SaveRoleCommand(botMsg.ID, roleCommand)
-		bot.saveableCommand.RemoveCommandProgress(msg.Author.ID)
-	default:
-		//error
-	}
+	middleWareContent := discord.MiddleWareContent{}
+	json.Unmarshal([]byte(msg.Content), &middleWareContent)
+	bot.commands[rolemessage.RoleReactString].(*rolemessage.RoleMessageCommand).ReactRoleMessage(s, data, middleWareContent)
 }
 
-//Bot role needs to be above role to give the role.
-func (bot *discordBot) addRole(s disgord.Session, data *disgord.MessageReactionAdd) {
-	userID := data.UserID
-	command := bot.saveableCommand.GetRoleCommand(data.MessageID)
-	s.Guild(command.Guild).Member(userID).AddRole(command.Role)
+func (bot *discordBot) reactionAdd(disgord.Session, *disgord.MessageReactionAdd) {
+
 }
 
-func (bot *discordBot) removeRole(s disgord.Session, data *disgord.MessageReactionRemove) {
-	userID := data.UserID
-	command := bot.saveableCommand.GetRoleCommand(data.MessageID)
-	s.Guild(command.Guild).Member(userID).RemoveRole(command.Role)
+func (bot *discordBot) reactonRemove(disgord.Session, *disgord.MessageReactionRemove) {
+
 }
 
-func newMiddlewareHolder(ctx context.Context, s disgord.Session) (m *middlewareHolder, err error) {
-	m = &middlewareHolder{session: s}
-	if m.myself, err = s.CurrentUser().WithContext(ctx).Get(); err != nil {
-		return nil, errors.New("unable to fetch info about the bot instance")
-	}
-	return m, nil
+func (bot *discordBot) messageDelete(disgord.Session, *disgord.MessageDelete) {
+
 }

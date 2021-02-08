@@ -2,7 +2,7 @@ package rolecommand
 
 import (
 	"database/sql"
-	"discordbot/databaseclient"
+	"discordbot/repositories"
 	"errors"
 	"log"
 )
@@ -18,15 +18,15 @@ func New(db *sql.DB) *RoleCommandRepository {
 	}
 }
 
-func (r *RoleCommandRepository) SaveCommandInProgress(command *databaseclient.CommandInProgress) error {
+func (r *RoleCommandRepository) SaveCommandInProgress(command *repositories.CommandInProgress) error {
 	tx, err := r.db.Begin()
 
 	if err != nil {
 		return err
 	}
 
-	const insertStmt = `REPLACE INTO in_progress_role_command(guild, channel, user, role, emoji, stage) 
-	VALUES (?, ?, ?, ?, ?, ?);`
+	const insertStmt = `REPLACE INTO in_progress_role_command(guild, origin_channel, target_channel, user, role, emoji, stage) 
+	VALUES (?, ?, ?, ?, ?, ?, ?);`
 	stmt, err := tx.Prepare(insertStmt)
 
 	if err != nil {
@@ -37,7 +37,8 @@ func (r *RoleCommandRepository) SaveCommandInProgress(command *databaseclient.Co
 
 	res, err := stmt.Exec(
 		command.Guild,
-		command.Channel,
+		command.OriginChannel,
+		command.TargetChannel,
 		command.User,
 		command.Role,
 		command.Emoji,
@@ -60,7 +61,7 @@ func (r *RoleCommandRepository) SaveCommandInProgress(command *databaseclient.Co
 	return nil
 }
 
-func (r *RoleCommandRepository) SaveRoleCommand(roleCommand *databaseclient.RoleCommand) error {
+func (r *RoleCommandRepository) SaveRoleCommand(roleCommand *repositories.RoleCommand) error {
 	const query = `INSERT INTO role_message_command(author, guild, msg, role, emoji) VALUES (?, ?, ?, ?, ?);`
 
 	tx, err := r.db.Begin()
@@ -99,8 +100,8 @@ func (r *RoleCommandRepository) SaveRoleCommand(roleCommand *databaseclient.Role
 	return nil
 }
 
-func (r *RoleCommandRepository) IsUserUsingCommand(user databaseclient.Snowflake, channel databaseclient.Snowflake) bool {
-	const query = `SELECT * FROM in_progress_role_command WHERE user = ? AND channel = ?;`
+func (r *RoleCommandRepository) IsUserUsingCommand(user repositories.Snowflake, channel repositories.Snowflake) bool {
+	const query = `SELECT * FROM in_progress_role_command WHERE user = ? AND origin_channel = ?;`
 
 	rows, err := r.db.Query(query, user, channel)
 	if err != nil {
@@ -113,21 +114,22 @@ func (r *RoleCommandRepository) IsUserUsingCommand(user databaseclient.Snowflake
 	return rows.Next()
 }
 
-func (r *RoleCommandRepository) GetCommandInProgress(user databaseclient.Snowflake, channel databaseclient.Snowflake) databaseclient.CommandInProgress {
-	const query = `SELECT * FROM in_progress_role_command WHERE user = ? AND channel = ?;`
+func (r *RoleCommandRepository) GetCommandInProgress(user repositories.Snowflake, channel repositories.Snowflake) repositories.CommandInProgress {
+	const query = `SELECT * FROM in_progress_role_command WHERE user = ? AND origin_channel = ?;`
 
 	row := r.db.QueryRow(query, user, channel)
 	if row.Err() != nil {
 		log.Println(row.Err())
-		return databaseclient.CommandInProgress{}
+		return repositories.CommandInProgress{}
 	}
 
-	commandInProgress := databaseclient.CommandInProgress{}
+	commandInProgress := repositories.CommandInProgress{}
 
 	row.Scan(
 		&commandInProgress.CommandInProgressID,
 		&commandInProgress.Guild, 
-		&commandInProgress.Channel, 
+		&commandInProgress.OriginChannel,
+		&commandInProgress.TargetChannel,
 		&commandInProgress.User, 
 		&commandInProgress.Role,
 		&commandInProgress.Emoji,
@@ -136,8 +138,8 @@ func (r *RoleCommandRepository) GetCommandInProgress(user databaseclient.Snowfla
 	return commandInProgress
 }
 
-func (r *RoleCommandRepository) RemoveCommandProgress(user databaseclient.Snowflake, channel databaseclient.Snowflake) error {
-	const query = `DELETE FROM in_progress_role_command WHERE user = ? AND channel = ?;`
+func (r *RoleCommandRepository) RemoveCommandProgress(user repositories.Snowflake, channel repositories.Snowflake) error {
+	const query = `DELETE FROM in_progress_role_command WHERE user = ? AND origin_channel = ?;`
 
 	result, err := r.db.Exec(query, user, channel)
 
@@ -151,7 +153,7 @@ func (r *RoleCommandRepository) RemoveCommandProgress(user databaseclient.Snowfl
 	return nil
 }
 
-func (r *RoleCommandRepository) IsRoleCommandMessage(msg databaseclient.Snowflake, emoji databaseclient.Snowflake) bool {
+func (r *RoleCommandRepository) IsRoleCommandMessage(msg repositories.Snowflake, emoji repositories.Snowflake) bool {
 	const query = `SELECT * FROM role_message_command WHERE msg = ? AND emoji = ?;`
 
 	rows, err := r.db.Query(query, msg, emoji)
@@ -165,16 +167,16 @@ func (r *RoleCommandRepository) IsRoleCommandMessage(msg databaseclient.Snowflak
 	return rows.Next()
 }
 
-func (r *RoleCommandRepository) GetRoleCommand(msg databaseclient.Snowflake) databaseclient.RoleCommand {
+func (r *RoleCommandRepository) GetRoleCommand(msg repositories.Snowflake) repositories.RoleCommand {
 	const query = `SELECT * FROM role_message_command WHERE msg = ?;`
 
 	row := r.db.QueryRow(query, msg)
 	if row.Err() != nil {
 		log.Println(row.Err())
-		return databaseclient.RoleCommand{}
+		return repositories.RoleCommand{}
 	}
 
-	roleCommand := databaseclient.RoleCommand{}
+	roleCommand := repositories.RoleCommand{}
 
 	err := row.Scan(
 		&roleCommand.RoleCommandID,
@@ -186,13 +188,13 @@ func (r *RoleCommandRepository) GetRoleCommand(msg databaseclient.Snowflake) dat
 
 	if err != nil {
 		log.Println(err)
-		return databaseclient.RoleCommand{}
+		return repositories.RoleCommand{}
 	}
 
 	return roleCommand
 }
 
-func (r *RoleCommandRepository) RemoveRoleReactCommand(msg databaseclient.Snowflake) error {
+func (r *RoleCommandRepository) RemoveRoleReactCommand(msg repositories.Snowflake) error {
 	const query = `DELETE FROM role_message_command WHERE msg = ?;`
 
 	result, err := r.db.Exec(query, msg)

@@ -2,7 +2,7 @@ package strawpolldeadline
 
 import (
 	"database/sql"
-	"discordbot/databaseclient"
+	"discordbot/repositories"
 	"log"
 )
 
@@ -17,7 +17,7 @@ func New(db *sql.DB) *StrawpollDeadlineRepository {
 	}
 }
 
-func (r *StrawpollDeadlineRepository) SaveStrawpollDeadline(strawpollDeadline *databaseclient.StrawpollDeadline) error {
+func (r *StrawpollDeadlineRepository) SaveStrawpollDeadline(strawpollDeadline *repositories.StrawpollDeadline) error {
 	const query = `INSERT INTO strawpoll_deadline(strawpoll_id, author, guild, channel, role) VALUES (?, ?, ?, ?, ?);`
 
 	tx, err := r.db.Begin()
@@ -56,19 +56,19 @@ func (r *StrawpollDeadlineRepository) SaveStrawpollDeadline(strawpollDeadline *d
 	return nil
 }
 
-func (r *StrawpollDeadlineRepository) GetAllStrawpollDeadlines() []databaseclient.StrawpollDeadline {
+func (r *StrawpollDeadlineRepository) GetAllStrawpollDeadlines() []repositories.StrawpollDeadline {
 	const query = `SELECT * FROM strawpoll_deadline;`
 
 	rows, _ := r.db.Query(query)
 	if rows.Err() != nil {
 		log.Println("Error: ", rows.Err())
-		return []databaseclient.StrawpollDeadline{}
+		return []repositories.StrawpollDeadline{}
 	}
 
-	completedCommand := []databaseclient.StrawpollDeadline{}
+	completedCommand := []repositories.StrawpollDeadline{}
 
 	for rows.Next() {
-		row := databaseclient.StrawpollDeadline{}
+		row := repositories.StrawpollDeadline{}
 		err := rows.Scan(
 			&row.StrawpollDeadlineID,
 			&row.User,

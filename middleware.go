@@ -1,15 +1,104 @@
 package main
 
-import "github.com/andersfylling/disgord"
+import (
+	"context"
+	"discordbot/botcommands/discord"
+	"discordbot/repositories"
+	"discordbot/repositories/rolecommand"
+	"discordbot/repositories/users_repository"
+	"encoding/json"
+	"errors"
+	"strings"
+
+	"github.com/andersfylling/disgord"
+)
 
 type middlewareHolder struct {
-	session disgord.Session
-	myself  *disgord.User
+	session               disgord.Session
+	myself                *disgord.User
+	roleCommandRepository *rolecommand.RoleCommandRepository
+	usersRepository       *users_repository.UsersRepository
 }
 
-func (bot *discordBot) commandInUse(evt interface{}) interface{} {
+func newMiddlewareHolder(ctx context.Context, s disgord.Session, roleCommandRepository *rolecommand.RoleCommandRepository, usersRepository *users_repository.UsersRepository) (m *middlewareHolder, err error) {
+	m = &middlewareHolder{session: s, roleCommandRepository: roleCommandRepository, usersRepository: usersRepository}
+	if m.myself, err = s.CurrentUser().WithContext(ctx).Get(); err != nil {
+		return nil, errors.New("unable to fetch info about the bot instance")
+	}
+	return m, nil
+}
+
+func (bot *middlewareHolder) createMessageContentForNonCommand(evt interface{}) interface{} {
+	e, ok := evt.(*disgord.MessageCreate)
+	if !ok {
+		return nil
+	}
+
+	user := repositories.Users{DiscordUsersID: e.Message.Author.ID}
+	if !bot.usersRepository.DoesUserExist(e.Message.Author.ID) {
+		err := bot.usersRepository.SaveUser(&user)
+		if err != nil {
+			log.Println(err)
+			return nil
+		}
+	} else {
+		user = bot.usersRepository.GetUserByDiscordId(e.Message.Author.ID)
+	}
+	
+	middleWareContent := discord.MiddleWareContent{MessageContent: e.Message.Content, UsersID: user.UsersID}
+	jsonContent, err := json.Marshal(middleWareContent)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+	e.Message.Content = string(jsonContent)
+	return evt
+}
+
+func (bot *middlewareHolder) checkAndSaveUser(evt interface{}) interface{} {
+	e, ok := evt.(*disgord.MessageCreate)
+	if !ok {
+		return nil
+	}
+
+	user := repositories.Users{DiscordUsersID: e.Message.Author.ID}
+	if !bot.usersRepository.DoesUserExist(e.Message.Author.ID) {
+		err := bot.usersRepository.SaveUser(&user)
+		if err != nil {
+			log.Println(err)
+			return nil
+		}
+	} else {
+		user = bot.usersRepository.GetUserByDiscordId(e.Message.Author.ID)
+	}
+
+	split := strings.Split(e.Message.Content, " ")
+	var messageContent string
+	if len(split) > 1 {
+		messageContent = e.Message.Content[len(split[0])+1:]
+	}
+	middleWareContent := discord.MiddleWareContent{Command: split[0], MessageContent: messageContent, UsersID: user.UsersID}
+	jsonContent, err := json.Marshal(middleWareContent)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+	e.Message.Content = string(jsonContent)
+	return evt
+}
+
+func (bot *middlewareHolder) isFromAdmin(evt interface{}) interface{} {
+	if e, ok := evt.(*disgord.MessageCreate); ok {
+		if e.Message.Author.ID != 124343682382954498 {
+			return nil
+		}
+	}
+	return evt
+}
+
+func (m *middlewareHolder) commandInUse(evt interface{}) interface{} {
 	if msg, ok := evt.(*disgord.MessageCreate); ok {
-		if !bot.saveableCommand.IsUserUsingCommand(msg.Message.Author) {
+		if !m.roleCommandRepository.IsUserUsingCommand(msg.Message.Author.ID, msg.Message.ChannelID) {
 			return nil
 		}
 	}
@@ -27,9 +116,9 @@ func (m *middlewareHolder) filterBotMsg(evt interface{}) interface{} {
 	return evt
 }
 
-func (bot *discordBot) reactionMessage(evt interface{}) interface{} {
+func (m *middlewareHolder) reactionMessage(evt interface{}) interface{} {
 	if e, ok := evt.(*disgord.MessageReactionAdd); ok {
-		if !bot.saveableCommand.IsRoleCommandMessage(e.MessageID, e.PartialEmoji.ID) {
+		if !m.roleCommandRepository.IsRoleCommandMessage(e.MessageID, e.PartialEmoji.ID) {
 			return nil
 		}
 	}
