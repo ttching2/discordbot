@@ -1,0 +1,3 @@
+package botcommands
+
+const CommandPrefix = "?"
