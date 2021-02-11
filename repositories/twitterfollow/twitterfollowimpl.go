@@ -3,7 +3,8 @@ package twitterfollow
 import (
 	"database/sql"
 	"discordbot/repositories"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type TwitterFollowRepository struct {
@@ -16,13 +17,12 @@ func New(db *sql.DB) *TwitterFollowRepository {
 	}
 }
 
-func (r *TwitterFollowRepository) GetFollowedUser(screenName string) []repositories.TwitterFollowCommand {
+func (r *TwitterFollowRepository) GetFollowedUser(screenName string) ([]repositories.TwitterFollowCommand, error) {
 	const query = `SELECT * FROM twitter_follow_command WHERE screen_name = ?;`
 
 	rows, err := r.db.Query(query, screenName)
 	if err != nil {
-		log.Println("Error: ", err)
-		return []repositories.TwitterFollowCommand{}
+		return []repositories.TwitterFollowCommand{}, err
 	}
 
 	completedCommand := []repositories.TwitterFollowCommand{}
@@ -37,13 +37,13 @@ func (r *TwitterFollowRepository) GetFollowedUser(screenName string) []repositor
 			&row.Guild,
 			&row.ScreenNameID)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
 			continue
 		}
 		completedCommand = append(completedCommand, row)
 	}
 
-	return completedCommand
+	return completedCommand, nil
 }
 
 func (r *TwitterFollowRepository) SaveUserToFollow(twitterFollow *repositories.TwitterFollowCommand) error {
@@ -63,7 +63,7 @@ func (r *TwitterFollowRepository) SaveUserToFollow(twitterFollow *repositories.T
 
 	defer stmt.Close()
 
-	result , err := stmt.Exec(
+	result, err := stmt.Exec(
 		twitterFollow.User,
 		twitterFollow.ScreenName,
 		twitterFollow.Channel,
@@ -94,19 +94,18 @@ func (r *TwitterFollowRepository) DeleteFollowedUser(screenName string, guild re
 		return err
 	}
 
-	if num, _ := result.RowsAffected(); num < 1 {
+	if num, err := result.RowsAffected(); num < 1 {
 		return err
 	}
 	return nil
 }
 
-func (r *TwitterFollowRepository) GetAllFollowedUsersInServer(guild repositories.Snowflake) []repositories.TwitterFollowCommand {
+func (r *TwitterFollowRepository) GetAllFollowedUsersInServer(guild repositories.Snowflake) ([]repositories.TwitterFollowCommand, error) {
 	const query = `SELECT * FROM twitter_follow_command WHERE guild = ?;`
 
 	rows, err := r.db.Query(query, guild)
 	if err != nil {
-		log.Println("Error: ", err)
-		return []repositories.TwitterFollowCommand{}
+		return []repositories.TwitterFollowCommand{}, err
 	}
 
 	completedCommand := []repositories.TwitterFollowCommand{}
@@ -121,22 +120,20 @@ func (r *TwitterFollowRepository) GetAllFollowedUsersInServer(guild repositories
 			&row.Guild,
 			&row.ScreenNameID)
 		if err != nil {
-			log.Println(err)
-			continue
+			return []repositories.TwitterFollowCommand{}, err
 		}
 		completedCommand = append(completedCommand, row)
 	}
 
-	return completedCommand
+	return completedCommand, nil
 }
 
-func (r *TwitterFollowRepository) GetAllUniqueFollowedUsers() []repositories.TwitterFollowCommand {
+func (r *TwitterFollowRepository) GetAllUniqueFollowedUsers() ([]repositories.TwitterFollowCommand, error) {
 	const query = `SELECT * FROM twitter_follow_command WHERE screen_name_id IS NOT NULL GROUP BY screen_name_id;`
 
 	rows, err := r.db.Query(query)
 	if err != nil {
-		log.Println("Error: ", err)
-		return []repositories.TwitterFollowCommand{}
+		return []repositories.TwitterFollowCommand{}, err
 	}
 
 	completedCommand := []repositories.TwitterFollowCommand{}
@@ -151,11 +148,10 @@ func (r *TwitterFollowRepository) GetAllUniqueFollowedUsers() []repositories.Twi
 			&row.Guild,
 			&row.ScreenNameID)
 		if err != nil {
-			log.Println(err)
-			continue
+			return []repositories.TwitterFollowCommand{}, err
 		}
 		completedCommand = append(completedCommand, row)
 	}
 
-	return completedCommand
+	return completedCommand, nil
 }

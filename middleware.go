@@ -28,23 +28,23 @@ func newMiddlewareHolder(ctx context.Context, s disgord.Session, roleCommandRepo
 	return m, nil
 }
 
-func (bot *middlewareHolder) createMessageContentForNonCommand(evt interface{}) interface{} {
+func (m *middlewareHolder) createMessageContentForNonCommand(evt interface{}) interface{} {
 	e, ok := evt.(*disgord.MessageCreate)
 	if !ok {
 		return nil
 	}
 
 	user := repositories.Users{DiscordUsersID: e.Message.Author.ID}
-	if !bot.usersRepository.DoesUserExist(e.Message.Author.ID) {
-		err := bot.usersRepository.SaveUser(&user)
+	if !m.usersRepository.DoesUserExist(e.Message.Author.ID) {
+		err := m.usersRepository.SaveUser(&user)
 		if err != nil {
 			log.Println(err)
 			return nil
 		}
 	} else {
-		user = bot.usersRepository.GetUserByDiscordId(e.Message.Author.ID)
+		user = m.usersRepository.GetUserByDiscordId(e.Message.Author.ID)
 	}
-	
+
 	middleWareContent := discord.MiddleWareContent{MessageContent: e.Message.Content, UsersID: user.UsersID}
 	jsonContent, err := json.Marshal(middleWareContent)
 	if err != nil {
@@ -55,21 +55,21 @@ func (bot *middlewareHolder) createMessageContentForNonCommand(evt interface{}) 
 	return evt
 }
 
-func (bot *middlewareHolder) checkAndSaveUser(evt interface{}) interface{} {
+func (m *middlewareHolder) checkAndSaveUser(evt interface{}) interface{} {
 	e, ok := evt.(*disgord.MessageCreate)
 	if !ok {
 		return nil
 	}
 
-	user := repositories.Users{DiscordUsersID: e.Message.Author.ID}
-	if !bot.usersRepository.DoesUserExist(e.Message.Author.ID) {
-		err := bot.usersRepository.SaveUser(&user)
+	user := repositories.Users{DiscordUsersID: e.Message.Author.ID, UserName: e.Message.Author.Username}
+	if !m.usersRepository.DoesUserExist(e.Message.Author.ID) {
+		err := m.usersRepository.SaveUser(&user)
 		if err != nil {
 			log.Println(err)
 			return nil
 		}
 	} else {
-		user = bot.usersRepository.GetUserByDiscordId(e.Message.Author.ID)
+		user = m.usersRepository.GetUserByDiscordId(e.Message.Author.ID)
 	}
 
 	split := strings.Split(e.Message.Content, " ")
@@ -87,7 +87,7 @@ func (bot *middlewareHolder) checkAndSaveUser(evt interface{}) interface{} {
 	return evt
 }
 
-func (bot *middlewareHolder) isFromAdmin(evt interface{}) interface{} {
+func (m *middlewareHolder) isFromAdmin(evt interface{}) interface{} {
 	if e, ok := evt.(*disgord.MessageCreate); ok {
 		if e.Message.Author.ID != 124343682382954498 {
 			return nil
@@ -98,7 +98,7 @@ func (bot *middlewareHolder) isFromAdmin(evt interface{}) interface{} {
 
 func (m *middlewareHolder) commandInUse(evt interface{}) interface{} {
 	if msg, ok := evt.(*disgord.MessageCreate); ok {
-		if !m.roleCommandRepository.IsUserUsingCommand(msg.Message.Author.ID, msg.Message.ChannelID) {
+		if inUse, err := m.roleCommandRepository.IsUserUsingCommand(msg.Message.Author.ID, msg.Message.ChannelID); err != nil || !inUse {
 			return nil
 		}
 	}
@@ -118,7 +118,7 @@ func (m *middlewareHolder) filterBotMsg(evt interface{}) interface{} {
 
 func (m *middlewareHolder) reactionMessage(evt interface{}) interface{} {
 	if e, ok := evt.(*disgord.MessageReactionAdd); ok {
-		if !m.roleCommandRepository.IsRoleCommandMessage(e.MessageID, e.PartialEmoji.ID) {
+		if isCommand, err := m.roleCommandRepository.IsRoleCommandMessage(e.MessageID, e.PartialEmoji.ID); err != nil || !isCommand {
 			return nil
 		}
 	}
@@ -136,7 +136,7 @@ func (m *middlewareHolder) filterOutBots(evt interface{}) interface{} {
 	return evt
 }
 
-func StripCommand(evt interface{}, command string) {
+func stripCommand(evt interface{}, command string) {
 	msg := getMsg(evt)
 	msg.Content = msg.Content[len(command):]
 }

@@ -10,11 +10,17 @@ import (
 	"log"
 	"reflect"
 	"testing"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 
 func initDB() *sql.DB {
-	client, _ := sql.Open("sqlite3", ":memory:?_foreign_keys=on")
+	client, err := sql.Open("sqlite3", ":memory:?_foreign_keys=on")
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	query, _ := ioutil.ReadFile("..\\..\\dbscript.sql")
 
@@ -34,10 +40,11 @@ func TestGetUserByDiscordId(t *testing.T) {
 	user := repositories.Users{
 		UsersID: 1,
 		DiscordUsersID: 1234,
+		UserName: "test",
 		IsAdmin: false,
 	}
 
-	db.Exec(`INSERT INTO users(users_id, discord_users_id) VALUES (?, ?);`, user.UsersID, user.DiscordUsersID)
+	db.Exec(`INSERT INTO users(users_id, discord_users_id, user_name) VALUES (?, ?, ?);`, user.UsersID, user.DiscordUsersID, user.UserName)
 
 	result := repo.GetUserByDiscordId(user.DiscordUsersID)
 
@@ -55,6 +62,7 @@ func TestSaveUser(t *testing.T) {
 	user := repositories.Users{
 		UsersID: 1,
 		DiscordUsersID: 1234,
+		UserName: "test",
 		IsAdmin: false,
 	}
 
@@ -81,6 +89,7 @@ func TestIsUserUsingCommand(t *testing.T) {
 	user := repositories.Users{
 		UsersID: 1,
 		DiscordUsersID: 1234,
+		UserName: "test",
 		IsAdmin: false,
 	}
 

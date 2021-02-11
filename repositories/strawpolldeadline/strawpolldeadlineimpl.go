@@ -3,9 +3,7 @@ package strawpolldeadline
 import (
 	"database/sql"
 	"discordbot/repositories"
-	"log"
 )
-
 
 type StrawpollDeadlineRepository struct {
 	db *sql.DB
@@ -34,7 +32,7 @@ func (r *StrawpollDeadlineRepository) SaveStrawpollDeadline(strawpollDeadline *r
 
 	defer stmt.Close()
 
-	result , err := stmt.Exec(
+	result, err := stmt.Exec(
 		strawpollDeadline.StrawpollID,
 		strawpollDeadline.User,
 		strawpollDeadline.Guild,
@@ -56,13 +54,12 @@ func (r *StrawpollDeadlineRepository) SaveStrawpollDeadline(strawpollDeadline *r
 	return nil
 }
 
-func (r *StrawpollDeadlineRepository) GetAllStrawpollDeadlines() []repositories.StrawpollDeadline {
+func (r *StrawpollDeadlineRepository) GetAllStrawpollDeadlines() ([]repositories.StrawpollDeadline, error) {
 	const query = `SELECT * FROM strawpoll_deadline;`
 
 	rows, _ := r.db.Query(query)
 	if rows.Err() != nil {
-		log.Println("Error: ", rows.Err())
-		return []repositories.StrawpollDeadline{}
+		return []repositories.StrawpollDeadline{}, rows.Err()
 	}
 
 	completedCommand := []repositories.StrawpollDeadline{}
@@ -77,16 +74,15 @@ func (r *StrawpollDeadlineRepository) GetAllStrawpollDeadlines() []repositories.
 			&row.Channel,
 			&row.Role)
 		if err != nil {
-			log.Println(err)
-			continue
+			return []repositories.StrawpollDeadline{}, rows.Err()
 		}
 		completedCommand = append(completedCommand, row)
 	}
 
-	return completedCommand
+	return completedCommand, nil
 }
 
-func (r *StrawpollDeadlineRepository) DeleteStrawpollDeadlineByID(ID int64) error{
+func (r *StrawpollDeadlineRepository) DeleteStrawpollDeadlineByID(ID int64) error {
 	const query = `DELETE FROM strawpoll_deadline WHERE strawpoll_deadline_id = ?;`
 
 	result, err := r.db.Exec(query, ID)

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/andersfylling/disgord"
+	log "github.com/sirupsen/logrus"
 )
 
 const StrawPollDeadlineString = "strawpoll-deadline"
@@ -87,14 +88,22 @@ func (c *StrawpollDeadlineCommand) ExecuteCommand(s disgord.Session, data *disgo
 		}
 		result := fmt.Sprintf("%s Strawpoll has closed. The top vote for %s is %s with %d votes.", role.Mention(), poll.Content.Title, topAnswer.Answer, topAnswer.Votes)
 		s.Channel(channel.ID).CreateMessage(&disgord.CreateMessageParams{Content: result})
-		c.repo.DeleteStrawpollDeadlineByID(strawpollDeadline.StrawpollDeadlineID)
+		err := c.repo.DeleteStrawpollDeadlineByID(strawpollDeadline.StrawpollDeadlineID)
+		if err != nil {
+			log.WithField("strawpoll", strawpollDeadline).Error(err)
+		}
 	}()
 
 	msg.React(context.Background(), s, "👍")
 }
 
 func RestartStrawpollDeadlines(client *disgord.Client, dbClient repositories.StrawpollDeadlineRepository, strawpollClient *strawpoll.Client) {
-	for _, strawpoll := range dbClient.GetAllStrawpollDeadlines() {
+	strawpolls, err := dbClient.GetAllStrawpollDeadlines() 
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	for _, strawpoll := range strawpolls{
 
 		poll, err := strawpollClient.GetPoll(strawpoll.StrawpollID)
 		if err != nil {

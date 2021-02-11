@@ -10,11 +10,17 @@ import (
 	"log"
 	"reflect"
 	"testing"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 
 func initDB() *sql.DB {
-	client, _ := sql.Open("sqlite3", ":memory:?_foreign_keys=on")
+	client, err := sql.Open("sqlite3", ":memory:?_foreign_keys=on")
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	query, _ := ioutil.ReadFile("..\\..\\dbscript.sql")
 
@@ -49,7 +55,12 @@ func TestGetFollowedUser(t *testing.T) {
 		return
 	}
 
-	result := repo.GetFollowedUser(twitterFollow.ScreenName)
+	result, err := repo.GetFollowedUser(twitterFollow.ScreenName)
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	if len(result) != 1 {
 		t.Error("Wrong number of rows returned. Expected: 1, Got: ", len(result))
@@ -124,7 +135,12 @@ func TestDeleteFollowedUser(t *testing.T) {
 		return
 	}
 
-	result := repo.GetFollowedUser(twitterFollow.ScreenName)
+	result, err := repo.GetFollowedUser(twitterFollow.ScreenName)
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	if len(result) !=0  {
 		t.Error("Wrong number of rows returned. Expected: 0, Got: ", len(result))
@@ -170,7 +186,12 @@ func TestGetAllFollowedUsersInServer(t *testing.T) {
 	db.Exec(`INSERT INTO twitter_follow_command(author, screen_name, channel, guild, screen_name_id) VALUES (?, ?, ?, ?, ?);`, 
 	&twitterFollow3.User, &twitterFollow3.ScreenName, &twitterFollow3.Channel, &twitterFollow3.Guild, &twitterFollow3.ScreenNameID)
 
-	results := repo.GetAllFollowedUsersInServer(567)
+	results, err := repo.GetAllFollowedUsersInServer(567)
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	if len(results) != 2 {
 		t.Error("Wrong number of rows returned. Expected: 2, Got: ", len(results))
@@ -224,7 +245,12 @@ func TestGetAllUniqueFollowedUsers(t *testing.T) {
 	db.Exec(`INSERT INTO twitter_follow_command(author, screen_name, channel, guild, screen_name_id) VALUES (?, ?, ?, ?, ?);`, 
 	&twitterFollow3.User, &twitterFollow3.ScreenName, &twitterFollow3.Channel, &twitterFollow3.Guild, &twitterFollow3.ScreenNameID)
 
-	results := repo.GetAllUniqueFollowedUsers()
+	results, err := repo.GetAllUniqueFollowedUsers()
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	if len(results) != 2 {
 		t.Error("Wrong number of rows returned. Expected: 2, Got: ", len(results))

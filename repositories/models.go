@@ -7,6 +7,7 @@ type Snowflake = disgord.Snowflake
 type Users struct {
 	UsersID        int64
 	DiscordUsersID Snowflake
+	UserName       string
 	IsAdmin        bool
 }
 
