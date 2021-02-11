@@ -3,9 +3,9 @@ package users_repository
 import (
 	"database/sql"
 	"discordbot/repositories"
-	"log"
-)
 
+	log "github.com/sirupsen/logrus"
+)
 
 type UsersRepository struct {
 	db *sql.DB
@@ -22,7 +22,7 @@ func (r *UsersRepository) GetUserByDiscordId(user repositories.Snowflake) reposi
 
 	row := r.db.QueryRow(query, user)
 	if row.Err() != nil {
-		log.Println(row.Err())
+		log.WithField("user", user).Error(row.Err())
 		return repositories.Users{}
 	}
 
@@ -30,7 +30,8 @@ func (r *UsersRepository) GetUserByDiscordId(user repositories.Snowflake) reposi
 
 	row.Scan(
 		&result.UsersID,
-		&result.DiscordUsersID, 
+		&result.DiscordUsersID,
+		&result.UserName,
 		&result.IsAdmin)
 
 	return result
@@ -41,7 +42,7 @@ func (r *UsersRepository) DoesUserExist(user repositories.Snowflake) bool {
 
 	rows, err := r.db.Query(query, user)
 	if err != nil {
-		log.Println(err)
+		log.WithField("user", user).Error(err)
 		return false
 	}
 
@@ -51,7 +52,7 @@ func (r *UsersRepository) DoesUserExist(user repositories.Snowflake) bool {
 }
 
 func (r *UsersRepository) SaveUser(user *repositories.Users) error {
-	const query = `INSERT INTO users(discord_users_id, is_admin) VALUES (?, ?);`
+	const query = `INSERT INTO users(discord_users_id, is_admin, user_name) VALUES (?, ?, ?);`
 
 	tx, err := r.db.Begin()
 
@@ -67,9 +68,10 @@ func (r *UsersRepository) SaveUser(user *repositories.Users) error {
 
 	defer stmt.Close()
 
-	result , err := stmt.Exec(
+	result, err := stmt.Exec(
 		user.DiscordUsersID,
-		user.IsAdmin)
+		user.IsAdmin,
+		user.UserName)
 
 	if err != nil {
 		return err

@@ -8,6 +8,7 @@ import (
 	botTwitter "discordbot/twitter"
 
 	"github.com/andersfylling/disgord"
+	log "github.com/sirupsen/logrus"
 )
 
 const TwitterUnfollowString = "twitter-unfollow"
@@ -31,7 +32,13 @@ func NewTwitterUnfollowCommand(twitterClient *botTwitter.TwitterClient, repo rep
 func (c *TwitterUnfollowCommand) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate, middleWareContent discord.MiddleWareContent) {
 	msg := data.Message
 	
-	followedUsers := c.repo.GetAllUniqueFollowedUsers()
+	followedUsers, err := c.repo.GetAllUniqueFollowedUsers()
+	if err != nil {
+		msg.React(context.Background(), s, "👎")
+		log.WithField("middlewareContent", middleWareContent).Error(err)
+		return 
+	}
+	
 	foundUser := false
 	for _, user := range followedUsers {
 		if user.ScreenName == middleWareContent.MessageContent {

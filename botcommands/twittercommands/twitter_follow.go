@@ -8,11 +8,11 @@ import (
 	botTwitter "discordbot/twitter"
 	"discordbot/util"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/andersfylling/disgord"
 	"github.com/dghubble/go-twitter/twitter"
+	log "github.com/sirupsen/logrus"
 )
 
 const TwitterFollowString = "twitter-follow"
@@ -64,7 +64,7 @@ func (c *TwitterFollowCommand) ExecuteCommand(s disgord.Session, data *disgord.M
 		c.twitterClient.AddUserToTrack(userID)
 		err := c.repo.SaveUserToFollow(&twitterFollowCommand)
 		if err != nil {
-			log.Println(err)
+			log.WithField("twitterFollowCommand", twitterFollowCommand).Error(err)
 			msg.React(context.Background(), s, "👎")
 			return
 		}
@@ -77,15 +77,16 @@ func (c *TwitterFollowCommand) ExecuteCommand(s disgord.Session, data *disgord.M
 
 func RestartTwitterFollows(client *disgord.Client, dbClient repositories.TwitterFollowRepository, twitterClient *botTwitter.TwitterClient) {
 	tweetHandler := func(tweet *twitter.Tweet) {
-		discordMessage := fmt.Sprintf("New Tweet by %s https://www.twitter.com/%s/status/%s", tweet.User.Name, tweet.User.ScreenName, tweet.IDStr)
+		discordMessage := fmt.Sprintf("New Tweet by **%s** \nhttps://twitter.com/%s/status/%s", tweet.User.Name, tweet.User.ScreenName, tweet.IDStr)
 
 		newMessageParams := &disgord.CreateMessageParams{
 			Content: discordMessage,
 		}
 
-		twitterFollowCommands := dbClient.GetFollowedUser(tweet.User.ScreenName)
+		twitterFollowCommands, err := dbClient.GetFollowedUser(tweet.User.ScreenName)
 
-		if twitterFollowCommands == nil {
+		if err != nil {
+			log.WithField("twitterScreenName", tweet.User.ScreenName).Error(err)
 			return
 		}
 
@@ -96,8 +97,14 @@ func RestartTwitterFollows(client *disgord.Client, dbClient repositories.Twitter
 	}
 	twitterClient.SetTweetDemux(tweetHandler)
 
+	uniqueFollowedUsers, err := dbClient.GetAllUniqueFollowedUsers()
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
 	var followedUsers []string
-	for _, followed := range dbClient.GetAllUniqueFollowedUsers() {
+	for _, followed := range  uniqueFollowedUsers{
 		followedUsers = append(followedUsers, followed.ScreenNameID)
 	}
 	twitterClient.AddUsersToTrack(followedUsers)

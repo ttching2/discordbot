@@ -6,10 +6,11 @@ import (
 	"discordbot/botcommands/discord"
 	"discordbot/repositories"
 	"discordbot/util"
-	"log"
 	"strings"
 
 	"github.com/andersfylling/disgord"
+	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 const RoleReactString = "react"
@@ -43,7 +44,12 @@ func (c *RoleMessageCommand) ExecuteCommand(s disgord.Session, data *disgord.Mes
 func (c *RoleMessageCommand) ReactRoleMessage(s disgord.Session, data *disgord.MessageCreate, middleWareContent discord.MiddleWareContent) {
 	msg := data.Message
 
-	commandInProgress := c.repo.GetCommandInProgress(msg.Author.ID, msg.ChannelID)
+	commandInProgress, err := c.repo.GetCommandInProgress(msg.Author.ID, msg.ChannelID)
+	if err != nil {
+		msg.React(context.Background(), s, "👎")
+		log.Error(err)
+		return
+	}
 	guild := s.Guild(msg.GuildID)
 	messageContents := discord.DiscordMessageInfo{
 		Content:   middleWareContent.MessageContent,
@@ -129,7 +135,9 @@ func (c *RoleMessageCommand) createRoleMessageCommand(g discord.Guild, msg disco
 	err := c.repo.SaveRoleCommand(&roleCommand)
 
 	if err != nil {
-		log.Println(err)
+		log.WithFields(logrus.Fields{
+			"roleCommand": roleCommand,
+		}).Error(err)
 	}
 
 	c.repo.RemoveCommandProgress(msg.UserID, msg.ChannelID)
@@ -142,12 +150,18 @@ func (c *RoleMessageCommand) RemoveReactRoleMessage(s disgord.Session, data *dis
 //Bot role needs to be above role to give the role.
 func (c *RoleMessageCommand) AddRole(s disgord.Session, data *disgord.MessageReactionAdd) {
 	userID := data.UserID
-	command := c.repo.GetRoleCommand(data.MessageID)
+	command, err := c.repo.GetRoleCommand(data.MessageID)
+	if err != nil {
+		log.Error(err)
+	}
 	s.Guild(command.Guild).Member(userID).AddRole(command.Role)
 }
 
 func (c *RoleMessageCommand) RemoveRole(s disgord.Session, data *disgord.MessageReactionRemove) {
 	userID := data.UserID
-	command := c.repo.GetRoleCommand(data.MessageID)
+	command, err := c.repo.GetRoleCommand(data.MessageID)
+	if err != nil {
+		log.Error(err)
+	}
 	s.Guild(command.Guild).Member(userID).RemoveRole(command.Role)
 }

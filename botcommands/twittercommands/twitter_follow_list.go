@@ -7,6 +7,7 @@ import (
 	"discordbot/repositories"
 
 	"github.com/andersfylling/disgord"
+	log "github.com/sirupsen/logrus"
 )
 
 const TwitterFollowListString = "twitter-follow-list"
@@ -27,7 +28,12 @@ func NewTwitterFollowListCommand(repo repositories.TwitterFollowRepository) *Twi
 
 func (c *TwitterFollowListCommand) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate, middleWareContent discord.MiddleWareContent) {
 	followList := ""
-	followsInGuild := c.repo.GetAllFollowedUsersInServer(data.Message.GuildID)
+	followsInGuild, err := c.repo.GetAllFollowedUsersInServer(data.Message.GuildID)
+	if err != nil {
+		data.Message.React(context.Background(), s, "👎")
+		log.Error(err)
+		return
+	}
 	for _, follows := range followsInGuild{
 		followList +=  follows.ScreenName + "\n"
 	}

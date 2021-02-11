@@ -124,7 +124,12 @@ func TestGetAllStrawpolls(t *testing.T) {
 		return
 	}
 
-	rs := spDB.GetAllStrawpollDeadlines()	
+	rs, err := spDB.GetAllStrawpollDeadlines()	
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	if len(rs) != 2 {
 		t.Error("Wrong number of rows returned. Expected 2 received ", len(rs))

@@ -3,6 +3,7 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS users(
     users_id INTEGER PRIMARY KEY,
     discord_users_id BIG INTEGER NOT NULL UNIQUE,
+    user_name TEXT,
     is_admin BOOLEAN DEFAULT FALSE
 );
 

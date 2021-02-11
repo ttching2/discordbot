@@ -10,8 +10,9 @@ import (
 	"log"
 	"reflect"
 	"testing"
-)
 
+	_ "github.com/mattn/go-sqlite3"
+)
 
 func initDB() *sql.DB {
 	client, _ := sql.Open("sqlite3", ":memory:?_foreign_keys=on")
@@ -34,15 +35,15 @@ func TestSaveCommandInProgress(t *testing.T) {
 	repo := rolecommand.New(db)
 
 	commandInProgress := repositories.CommandInProgress{
-		User: 13456,
-		Guild: 567,
+		User:          13456,
+		Guild:         567,
 		OriginChannel: 1234,
-		Role: 1234364,
-		Emoji: 23145,
-		Stage: 1,
+		Role:          1234364,
+		Emoji:         23145,
+		Stage:         1,
 	}
 	err := repo.SaveCommandInProgress(&commandInProgress)
-	
+
 	if err != nil {
 		t.Error("Error saving in progress role command: ", err)
 		return
@@ -60,7 +61,7 @@ func TestSaveCommandInProgress(t *testing.T) {
 		&result.Emoji,
 		&result.Stage,
 	)
-	
+
 	if err != nil {
 		t.Error(err)
 	}
@@ -76,14 +77,14 @@ func TestSaveRoleCommand(t *testing.T) {
 	repo := rolecommand.New(db)
 
 	roleCommand := repositories.RoleCommand{
-		User: 1234,
-		Guild: 567,
-		Role: 1234364,
-		Emoji: 23145,
+		User:    1234,
+		Guild:   567,
+		Role:    1234364,
+		Emoji:   23145,
 		Message: 253435,
 	}
 	err := repo.SaveRoleCommand(&roleCommand)
-	
+
 	if err != nil {
 		t.Error("Error saving completed role command: ", err)
 		return
@@ -99,7 +100,7 @@ func TestSaveRoleCommand(t *testing.T) {
 		&result.Role,
 		&result.Emoji,
 	)
-	
+
 	if err != nil {
 		t.Error(err)
 	}
@@ -115,15 +116,19 @@ func TestIsUserUsingCommand(t *testing.T) {
 	repo := rolecommand.New(db)
 
 	commandInProgress := repositories.CommandInProgress{
-		User: 13456,
-		Guild: 567,
+		User:          13456,
+		Guild:         567,
 		OriginChannel: 1234,
-		Role: 1234364,
-		Emoji: 23145,
-		Stage: 1,
+		Role:          1234364,
+		Emoji:         23145,
+		Stage:         1,
 	}
 	repo.SaveCommandInProgress(&commandInProgress)
-	using := repo.IsUserUsingCommand(commandInProgress.User, commandInProgress.OriginChannel)
+	using, err := repo.IsUserUsingCommand(commandInProgress.User, commandInProgress.OriginChannel)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	if !using {
 		t.Error("User not found with in progress command.")
@@ -136,20 +141,23 @@ func TestGetCommandInProgress(t *testing.T) {
 	repo := rolecommand.New(db)
 
 	commandInProgress := repositories.CommandInProgress{
-		User: 13456,
-		Guild: 567,
+		User:          13456,
+		Guild:         567,
 		OriginChannel: 1234,
-		Role: 1234364,
-		Emoji: 23145,
-		Stage: 1,
+		Role:          1234364,
+		Emoji:         23145,
+		Stage:         1,
 	}
 	repo.SaveCommandInProgress(&commandInProgress)
 
-	result := repo.GetCommandInProgress(commandInProgress.User, commandInProgress.OriginChannel)
-
+	result, err := repo.GetCommandInProgress(commandInProgress.User, commandInProgress.OriginChannel)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	if !reflect.DeepEqual(result, commandInProgress) {
 		t.Error("Mismatched structs found while getting command in progress.")
-		return 
+		return
 	}
 }
 func TestRemoveCommandProgress(t *testing.T) {
@@ -159,12 +167,12 @@ func TestRemoveCommandProgress(t *testing.T) {
 	repo := rolecommand.New(db)
 
 	commandInProgress := repositories.CommandInProgress{
-		User: 13456,
-		Guild: 567,
+		User:          13456,
+		Guild:         567,
 		OriginChannel: 1234,
-		Role: 1234364,
-		Emoji: 23145,
-		Stage: 1,
+		Role:          1234364,
+		Emoji:         23145,
+		Stage:         1,
 	}
 	repo.SaveCommandInProgress(&commandInProgress)
 	err := repo.RemoveCommandProgress(commandInProgress.User, commandInProgress.OriginChannel)
@@ -180,10 +188,10 @@ func TestIsRoleCommandMessage(t *testing.T) {
 	repo := rolecommand.New(db)
 
 	roleCommand := repositories.RoleCommand{
-		User: 1234,
-		Guild: 567,
-		Role: 1234364,
-		Emoji: 23145,
+		User:    1234,
+		Guild:   567,
+		Role:    1234364,
+		Emoji:   23145,
 		Message: 253435,
 	}
 	err := repo.SaveRoleCommand(&roleCommand)
@@ -191,8 +199,11 @@ func TestIsRoleCommandMessage(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	isRoleCommand := repo.IsRoleCommandMessage(roleCommand.Message, roleCommand.Emoji)
-
+	isRoleCommand, err := repo.IsRoleCommandMessage(roleCommand.Message, roleCommand.Emoji)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	if !isRoleCommand {
 		t.Error("Role command message not found when it should exist.")
 	}
@@ -204,10 +215,10 @@ func TestGetRoleCommand(t *testing.T) {
 	repo := rolecommand.New(db)
 
 	roleCommand := repositories.RoleCommand{
-		User: 1234,
-		Guild: 567,
-		Role: 1234364,
-		Emoji: 23145,
+		User:    1234,
+		Guild:   567,
+		Role:    1234364,
+		Emoji:   23145,
 		Message: 253435,
 	}
 	err := repo.SaveRoleCommand(&roleCommand)
@@ -215,8 +226,11 @@ func TestGetRoleCommand(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	result := repo.GetRoleCommand(roleCommand.Message)
-
+	result, err := repo.GetRoleCommand(roleCommand.Message)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	if !reflect.DeepEqual(roleCommand, result) {
 		t.Error("Error retrieving role command. Mismatched commands found.")
 	}
@@ -228,10 +242,10 @@ func TestRemoveRoleReactCommand(t *testing.T) {
 	repo := rolecommand.New(db)
 
 	roleCommand := repositories.RoleCommand{
-		User: 1234,
-		Guild: 567,
-		Role: 1234364,
-		Emoji: 23145,
+		User:    1234,
+		Guild:   567,
+		Role:    1234364,
+		Emoji:   23145,
 		Message: 253435,
 	}
 	repo.SaveRoleCommand(&roleCommand)
@@ -242,8 +256,11 @@ func TestRemoveRoleReactCommand(t *testing.T) {
 		return
 	}
 
-	result := repo.IsRoleCommandMessage(roleCommand.Message, roleCommand.Emoji)
-
+	result, err := repo.IsRoleCommandMessage(roleCommand.Message, roleCommand.Emoji)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	if result {
 		t.Error("Role command not deleted.")
 	}

@@ -27,10 +27,11 @@ import (
 )
 
 var log = &logrus.Logger{
-	Out:       os.Stderr,
-	Formatter: new(logrus.TextFormatter),
-	Hooks:     make(logrus.LevelHooks),
-	Level:     logrus.DebugLevel,
+	Out:          os.Stderr,
+	Formatter:    new(logrus.TextFormatter),
+	Hooks:        make(logrus.LevelHooks),
+	Level:        logrus.InfoLevel,
+	ReportCaller: true,
 }
 
 type discordConfig struct {
@@ -38,15 +39,15 @@ type discordConfig struct {
 }
 
 type BotConfig struct {
-	DiscordConfig discordConfig
-	TwitterConfig myTwitter.TwitterClientConfig
+	DiscordConfig   discordConfig
+	TwitterConfig   myTwitter.TwitterClientConfig
 	StrawPollConfig strawpoll.StrawPollConfig
 }
 
 type discordBot struct {
-	twitterClient *myTwitter.TwitterClient
-	strawpollClient *strawpoll.Client
-	commands map[string]interface{}
+	twitterClient    *myTwitter.TwitterClient
+	strawpollClient  *strawpoll.Client
+	commands         map[string]interface{}
 	customMiddleWare *middlewareHolder
 }
 
@@ -56,10 +57,10 @@ func main() {
 			botToken: os.Getenv("DISCORD_TOKEN"),
 		},
 		TwitterConfig: myTwitter.TwitterClientConfig{
-			ConsumerKey: os.Getenv("TWITTER_API_KEY"),
+			ConsumerKey:    os.Getenv("TWITTER_API_KEY"),
 			ConsumerSecret: os.Getenv("TWITTER_SECRET_KEY"),
-			AccessToken: os.Getenv("TWITTER_ACCESS_TOKEN"),
-			AccessSecret: os.Getenv("TWITTER_TOKEN_SECRET"),
+			AccessToken:    os.Getenv("TWITTER_ACCESS_TOKEN"),
+			AccessSecret:   os.Getenv("TWITTER_TOKEN_SECRET"),
 		},
 		StrawPollConfig: strawpoll.StrawPollConfig{
 			ApiKey: os.Getenv("STRAWPOLL_TOKEN"),
@@ -70,7 +71,7 @@ func main() {
 		Logger:   log, // optional logging
 		Cache:    &disgord.CacheNop{},
 	})
-	
+
 	bot := initializeBot(client, botConfig)
 	run(client, bot)
 }
@@ -79,6 +80,7 @@ func newSqlDb() *sql.DB {
 	client, err := sql.Open("sqlite3", "botdb?_foreign_keys=on")
 
 	if err != nil {
+
 		log.Fatal(err)
 	}
 
@@ -96,7 +98,7 @@ func initializeBot(client *disgord.Client, config BotConfig) discordBot {
 	usersRepository := users_repository.New(sqlDb)
 
 	twittercommands.RestartTwitterFollows(client, twitterCommandRepository, twitterClient)
-	
+
 	strawpolldeadline.RestartStrawpollDeadlines(client, strawpollCommandRepository, strawpollClient)
 
 	commands := make(map[string]interface{})
@@ -115,9 +117,9 @@ func initializeBot(client *disgord.Client, config BotConfig) discordBot {
 	customMiddleWare, _ := newMiddlewareHolder(context.Background(), client, roleCommandRepository, usersRepository)
 
 	return discordBot{
-		twitterClient: twitterClient,
-		commands: commands,
-		strawpollClient: strawpollClient,
+		twitterClient:    twitterClient,
+		commands:         commands,
+		strawpollClient:  strawpollClient,
 		customMiddleWare: customMiddleWare,
 	}
 }
