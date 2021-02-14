@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"discordbot/botcommands"
@@ -158,7 +157,6 @@ func (bot *discordBot) ExecuteCommand(s disgord.Session, data *disgord.MessageCr
 	json.Unmarshal([]byte(msg.Content), &middleWareContent)
 	//TODO could be done better :/
 	if _, ok := bot.commands[middleWareContent.Command]; !ok {
-		msg.Reply(context.Background(), s, fmt.Sprintf("Command %s not found", middleWareContent.Command))
 		return
 	}
 	bot.commands[middleWareContent.Command].(discord.MessageCreateHandler).ExecuteCommand(s, data, middleWareContent)
