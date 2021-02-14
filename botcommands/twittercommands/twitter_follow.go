@@ -51,8 +51,8 @@ func (c *TwitterFollowCommand) ExecuteCommand(s disgord.Session, data *disgord.M
 		return
 	}
 
-	channels, _ := s.Guild(msg.GuildID).GetChannels()
-	channel := util.FindChannelByName(channelName, channels)
+	guild := s.Guild(msg.GuildID)
+	channel := util.FindChannelByName(channelName, guild)
 	if channel != nil {
 		twitterFollowCommand := repositories.TwitterFollowCommand{
 			User:         middleWareContent.UsersID,

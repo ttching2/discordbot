@@ -66,14 +66,26 @@ func (c *RoleMessageCommand) ReactRoleMessage(s disgord.Session, data *disgord.M
 	case 3:
 		c.getEmojiFromUser(guild, messageContents, commandInProgress, s)
 	case 4:
-		c.createRoleMessageCommand(guild, messageContents, commandInProgress, s)
+		targetChannel := util.FindTargetChannel(commandInProgress.TargetChannel, guild)
+		reactEmoji := util.FindTargetEmoji(commandInProgress.Emoji, guild)
+
+		msg, err := targetChannel.SendMsg(context.Background(), s, &disgord.Message{Content: middleWareContent.MessageContent})
+		if err != nil {
+			log.Error(err)
+			return
+		}
+		msg.React(context.Background(), s, reactEmoji)
+		err = c.saveRoleCommand(messageContents.AuthorID, commandInProgress, msg.ID)
+		if err != nil {
+			return
+		}
+		c.repo.RemoveCommandProgress(messageContents.UserID, messageContents.ChannelID)
 	default:
 	}
 }
 
 func (c *RoleMessageCommand) getChannelFromUser(g discord.Guild, msg discord.DiscordMessageInfo, commandInProgress repositories.CommandInProgress, s disgord.Session) {
-	channels, _ := g.GetChannels()
-	channel := util.FindChannelByName(msg.Content, channels)
+	channel := util.FindChannelByName(msg.Content, g)
 	if channel == nil {
 		msg.Reply(context.Background(), s, "Channel not found. Aborting command.")
 		c.repo.RemoveCommandProgress(msg.UserID, msg.ChannelID)
@@ -115,22 +127,13 @@ func (c *RoleMessageCommand) getEmojiFromUser(g discord.Guild, msg discord.Disco
 	c.repo.SaveCommandInProgress(&commandInProgress)
 }
 
-func (c *RoleMessageCommand) createRoleMessageCommand(g discord.Guild, msg discord.DiscordMessageInfo, commandInProgress repositories.CommandInProgress, s disgord.Session) {
-	channels, _ := g.GetChannels()
-	commandChannel := util.FindChannelByID(commandInProgress.OriginChannel, channels)
-
-	botMsg , _ := commandChannel.SendMsg(context.Background(), s, &disgord.Message{Content: msg.Content})
-
-	emojis, _ := g.GetEmojis()
-	emoji := util.FindEmojiByID(commandInProgress.Emoji, emojis)
-	botMsg.React(context.Background(), s, emoji)
-
+func (c *RoleMessageCommand) saveRoleCommand(authorID int64, commandInProgress repositories.CommandInProgress, botMsgID repositories.Snowflake) error {
 	roleCommand := repositories.RoleCommand {
-		User:    msg.AuthorID,
+		User:    authorID,
 		Guild:   commandInProgress.Guild,
 		Role:    commandInProgress.Role,
 		Emoji:   commandInProgress.Emoji,
-		Message: botMsg.ID,
+		Message: botMsgID,
 	}
 	err := c.repo.SaveRoleCommand(&roleCommand)
 
@@ -138,9 +141,9 @@ func (c *RoleMessageCommand) createRoleMessageCommand(g discord.Guild, msg disco
 		log.WithFields(logrus.Fields{
 			"roleCommand": roleCommand,
 		}).Error(err)
+		return err
 	}
-
-	c.repo.RemoveCommandProgress(msg.UserID, msg.ChannelID)
+	return nil
 }
 
 func (c *RoleMessageCommand) RemoveReactRoleMessage(s disgord.Session, data *disgord.MessageDelete) {
