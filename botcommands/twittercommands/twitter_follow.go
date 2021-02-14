@@ -77,6 +77,10 @@ func (c *TwitterFollowCommand) ExecuteCommand(s disgord.Session, data *disgord.M
 
 func RestartTwitterFollows(client *disgord.Client, dbClient repositories.TwitterFollowRepository, twitterClient *botTwitter.TwitterClient) {
 	tweetHandler := func(tweet *twitter.Tweet) {
+		if tweet.InReplyToScreenName != "" {
+			return
+		}
+
 		discordMessage := fmt.Sprintf("New Tweet by **%s** \nhttps://twitter.com/%s/status/%s", tweet.User.Name, tweet.User.ScreenName, tweet.IDStr)
 
 		newMessageParams := &disgord.CreateMessageParams{
