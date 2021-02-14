@@ -1,3 +1,3 @@
 package botcommands
 
-const CommandPrefix = "?"
+const CommandPrefix = "$"

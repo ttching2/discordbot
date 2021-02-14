@@ -1,6 +1,7 @@
 package util
 
 import (
+	"discordbot/botcommands/discord"
 	"testing"
 
 	"github.com/andersfylling/disgord"
@@ -32,6 +33,8 @@ var emojiList = []*disgord.Emoji{
 	{Name: "happy", ID: 29034809},
 }
 
+type mockGuild = discord.Guild
+
 type stringTestPair struct {
 	given string
 	expected *disgord.Channel
@@ -50,7 +53,7 @@ func TestFindChannelByName(t *testing.T) {
 		{"👍", &disgord.Channel{Name: "👍", ID: 7983564723}},
 	}
 	for _, pair := range namesTofind {
-		r := FindChannelByName(pair.given, channelList)
+		r := findChannelByName(pair.given, channelList)
 		if pair.expected == nil {
 			if r != nil {
 				t.Error(
@@ -79,7 +82,7 @@ func TestFindChannelByID(t *testing.T) {
 		{7983564723, &disgord.Channel{Name: "👍", ID: 7983564723}},
 	}
 	for _, pair := range idsToFind {
-		r := FindChannelByID(pair.given, channelList)
+		r := findChannelByID(pair.given, channelList)
 		if pair.expected == nil {
 			if r != nil {
 				t.Error(
@@ -182,7 +185,7 @@ func TestFindEmojiByID(t *testing.T) {
 		{34209, &disgord.Emoji{Name: "long_long_name_long", ID: 34209}},
 	}
 	for _, pair := range idsToFind {
-		r := FindEmojiByID(pair.given, emojiList)
+		r := findEmojiByID(pair.given, emojiList)
 		if pair.expected == nil {
 			if r != nil {
 				t.Error(

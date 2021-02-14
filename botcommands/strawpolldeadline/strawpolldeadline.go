@@ -59,8 +59,8 @@ func (c *StrawpollDeadlineCommand) ExecuteCommand(s disgord.Session, data *disgo
 	}
 
 	channelName := split[1]
-	channels, _ := s.Guild(msg.GuildID).GetChannels()
-	channel := util.FindChannelByName(channelName, channels)
+	guild := s.Guild(msg.GuildID)
+	channel := util.FindChannelByName(channelName, guild)
 
 	roleName := split[2]
 	roles, _ := s.Guild(msg.GuildID).GetRoles()
