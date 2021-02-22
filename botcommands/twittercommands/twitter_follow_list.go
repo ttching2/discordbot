@@ -3,8 +3,8 @@ package twittercommands
 import (
 	"context"
 	"discordbot/botcommands"
-	"discordbot/botcommands/discord"
 	"discordbot/repositories"
+	"discordbot/repositories/model"
 
 	"github.com/andersfylling/disgord"
 	log "github.com/sirupsen/logrus"
@@ -12,31 +12,47 @@ import (
 
 const TwitterFollowListString = "twitter-follow-list"
 
-type TwitterFollowListCommand struct {
-	repo repositories.TwitterFollowRepository
+type twitterFollowListCommandFactory struct {
+	repo    repositories.TwitterFollowRepository
+	session disgord.Session
 }
 
-func (c *TwitterFollowListCommand) PrintHelp() string {
+func (c *twitterFollowListCommandFactory) PrintHelp() string {
 	return botcommands.CommandPrefix + TwitterFollowListString + " - lists all currently followed users for this discord."
 }
 
-func NewTwitterFollowListCommand(repo repositories.TwitterFollowRepository) *TwitterFollowListCommand {
-	return &TwitterFollowListCommand{
-		repo: repo,
+func NewTwitterFollowListCommandFactory(session disgord.Session, repo repositories.TwitterFollowRepository) *twitterFollowListCommandFactory {
+	return &twitterFollowListCommandFactory{
+		repo:    repo,
+		session: session,
 	}
 }
 
-func (c *TwitterFollowListCommand) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate, middleWareContent discord.MiddleWareContent) {
+func (c *twitterFollowListCommandFactory) CreateRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+	return &twitterFollowListCommand {
+		twitterFollowListCommandFactory: c,
+		data: data,
+		user: user,
+	}
+}
+
+type twitterFollowListCommand struct {
+	*twitterFollowListCommandFactory
+	data *disgord.MessageCreate
+	user *model.Users
+}
+
+func (c *twitterFollowListCommand) ExecuteMessageCreateCommand() {
 	followList := ""
-	followsInGuild, err := c.repo.GetAllFollowedUsersInServer(data.Message.GuildID)
+	followsInGuild, err := c.repo.GetAllFollowedUsersInServer(c.data.Message.GuildID)
 	if err != nil {
-		data.Message.React(context.Background(), s, "👎")
+		c.data.Message.React(context.Background(), c.session, "👎")
 		log.Error(err)
 		return
 	}
-	for _, follows := range followsInGuild{
-		followList +=  follows.ScreenName + "\n"
+	for _, follows := range followsInGuild {
+		followList += follows.ScreenName + "\n"
 	}
 
-	data.Message.Reply(context.Background(), s, "Following:\n" + followList)
+	c.data.Message.Reply(context.Background(), c.session, "Following:\n"+followList)
 }

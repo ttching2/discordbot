@@ -2,7 +2,7 @@ package twitterfollow
 
 import (
 	"database/sql"
-	"discordbot/repositories"
+	"discordbot/repositories/model"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -17,18 +17,18 @@ func New(db *sql.DB) *TwitterFollowRepository {
 	}
 }
 
-func (r *TwitterFollowRepository) GetFollowedUser(screenName string) ([]repositories.TwitterFollowCommand, error) {
+func (r *TwitterFollowRepository) GetFollowedUser(screenName string) ([]model.TwitterFollowCommand, error) {
 	const query = `SELECT * FROM twitter_follow_command WHERE screen_name = ?;`
 
 	rows, err := r.db.Query(query, screenName)
 	if err != nil {
-		return []repositories.TwitterFollowCommand{}, err
+		return []model.TwitterFollowCommand{}, err
 	}
 
-	completedCommand := []repositories.TwitterFollowCommand{}
+	completedCommand := []model.TwitterFollowCommand{}
 
 	for rows.Next() {
-		row := repositories.TwitterFollowCommand{}
+		row := model.TwitterFollowCommand{}
 		err := rows.Scan(
 			&row.TwitterFollowCommandID,
 			&row.User,
@@ -46,7 +46,7 @@ func (r *TwitterFollowRepository) GetFollowedUser(screenName string) ([]reposito
 	return completedCommand, nil
 }
 
-func (r *TwitterFollowRepository) SaveUserToFollow(twitterFollow *repositories.TwitterFollowCommand) error {
+func (r *TwitterFollowRepository) SaveUserToFollow(twitterFollow *model.TwitterFollowCommand) error {
 	const query = `INSERT INTO twitter_follow_command(author, screen_name, channel, guild, screen_name_id) VALUES (?, ?, ?, ?, ?);`
 
 	tx, err := r.db.Begin()
@@ -85,7 +85,7 @@ func (r *TwitterFollowRepository) SaveUserToFollow(twitterFollow *repositories.T
 	return nil
 }
 
-func (r *TwitterFollowRepository) DeleteFollowedUser(screenName string, guild repositories.Snowflake) error {
+func (r *TwitterFollowRepository) DeleteFollowedUser(screenName string, guild model.Snowflake) error {
 	const query = `DELETE FROM twitter_follow_command WHERE screen_name = ? AND guild = ?;`
 
 	result, err := r.db.Exec(query, screenName, guild)
@@ -100,18 +100,18 @@ func (r *TwitterFollowRepository) DeleteFollowedUser(screenName string, guild re
 	return nil
 }
 
-func (r *TwitterFollowRepository) GetAllFollowedUsersInServer(guild repositories.Snowflake) ([]repositories.TwitterFollowCommand, error) {
+func (r *TwitterFollowRepository) GetAllFollowedUsersInServer(guild model.Snowflake) ([]model.TwitterFollowCommand, error) {
 	const query = `SELECT * FROM twitter_follow_command WHERE guild = ?;`
 
 	rows, err := r.db.Query(query, guild)
 	if err != nil {
-		return []repositories.TwitterFollowCommand{}, err
+		return []model.TwitterFollowCommand{}, err
 	}
 
-	completedCommand := []repositories.TwitterFollowCommand{}
+	completedCommand := []model.TwitterFollowCommand{}
 
 	for rows.Next() {
-		row := repositories.TwitterFollowCommand{}
+		row := model.TwitterFollowCommand{}
 		err := rows.Scan(
 			&row.TwitterFollowCommandID,
 			&row.User,
@@ -120,7 +120,7 @@ func (r *TwitterFollowRepository) GetAllFollowedUsersInServer(guild repositories
 			&row.Guild,
 			&row.ScreenNameID)
 		if err != nil {
-			return []repositories.TwitterFollowCommand{}, err
+			return []model.TwitterFollowCommand{}, err
 		}
 		completedCommand = append(completedCommand, row)
 	}
@@ -128,18 +128,18 @@ func (r *TwitterFollowRepository) GetAllFollowedUsersInServer(guild repositories
 	return completedCommand, nil
 }
 
-func (r *TwitterFollowRepository) GetAllUniqueFollowedUsers() ([]repositories.TwitterFollowCommand, error) {
+func (r *TwitterFollowRepository) GetAllUniqueFollowedUsers() ([]model.TwitterFollowCommand, error) {
 	const query = `SELECT * FROM twitter_follow_command WHERE screen_name_id IS NOT NULL GROUP BY screen_name_id;`
 
 	rows, err := r.db.Query(query)
 	if err != nil {
-		return []repositories.TwitterFollowCommand{}, err
+		return []model.TwitterFollowCommand{}, err
 	}
 
-	completedCommand := []repositories.TwitterFollowCommand{}
+	completedCommand := []model.TwitterFollowCommand{}
 
 	for rows.Next() {
-		row := repositories.TwitterFollowCommand{}
+		row := model.TwitterFollowCommand{}
 		err := rows.Scan(
 			&row.TwitterFollowCommandID,
 			&row.User,
@@ -148,7 +148,7 @@ func (r *TwitterFollowRepository) GetAllUniqueFollowedUsers() ([]repositories.Tw
 			&row.Guild,
 			&row.ScreenNameID)
 		if err != nil {
-			return []repositories.TwitterFollowCommand{}, err
+			return []model.TwitterFollowCommand{}, err
 		}
 		completedCommand = append(completedCommand, row)
 	}

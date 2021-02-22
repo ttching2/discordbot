@@ -3,8 +3,8 @@ package twittercommands
 import (
 	"context"
 	"discordbot/botcommands"
-	"discordbot/botcommands/discord"
 	"discordbot/repositories"
+	"discordbot/repositories/model"
 	botTwitter "discordbot/twitter"
 	"discordbot/util"
 	"fmt"
@@ -17,28 +17,44 @@ import (
 
 const TwitterFollowString = "twitter-follow"
 
-type TwitterFollowCommand struct {
+type twitterFollowCommandFactory struct {
 	twitterClient *botTwitter.TwitterClient
 	repo          repositories.TwitterFollowRepository
+	session       disgord.Session
 }
 
-func NewTwitterFollowCommand(twitterClient *botTwitter.TwitterClient, repo repositories.TwitterFollowRepository) *TwitterFollowCommand {
-	return &TwitterFollowCommand{
+func NewTwitterFollowCommandFactory(session disgord.Session, twitterClient *botTwitter.TwitterClient, repo repositories.TwitterFollowRepository) *twitterFollowCommandFactory {
+	return &twitterFollowCommandFactory{
 		twitterClient: twitterClient,
 		repo:          repo,
+		session:       session,
 	}
 }
 
-func (c *TwitterFollowCommand) PrintHelp() string {
-	return botcommands.CommandPrefix + TwitterFollowListString + " {screen_name} {channel_name} - have the bot follow a given user on Twitter and post new Tweets to a given channel."
+func (c *twitterFollowCommandFactory) CreateRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+	return &twitterFollowCommand{
+		twitterFollowCommandFactory: c,
+		data:                        data,
+		user:                        user,
+	}
 }
 
-func (c *TwitterFollowCommand) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate, middleWareContent discord.MiddleWareContent) {
-	msg := data.Message
+type twitterFollowCommand struct {
+	*twitterFollowCommandFactory
+	data *disgord.MessageCreate
+	user *model.Users
+}
 
-	command := strings.Split(middleWareContent.MessageContent, " ")
+func (c *twitterFollowCommandFactory) PrintHelp() string {
+	return botcommands.CommandPrefix + TwitterFollowString + " {screen_name} {channel_name} - have the bot follow a given user on Twitter and post new Tweets to a given channel."
+}
+
+func (c *twitterFollowCommand) ExecuteMessageCreateCommand() {
+	msg := c.data.Message
+
+	command := strings.Split(c.data.Message.Content, " ")
 	if len(command) != 2 {
-		msg.Reply(context.Background(), s, "Missing screen name of person to follow. Command use !twitter-follow screenName channel")
+		msg.Reply(context.Background(), c.session, "Missing screen name of person to follow. Command use !twitter-follow screenName channel")
 		return
 	}
 	screenName := command[0]
@@ -46,16 +62,16 @@ func (c *TwitterFollowCommand) ExecuteCommand(s disgord.Session, data *disgord.M
 
 	userID := c.twitterClient.SearchForUser(screenName)
 	if userID == "" {
-		msg.React(context.Background(), s, "👎")
-		msg.Reply(context.Background(), s, "Twitter screen name not found.")
+		msg.React(context.Background(), c.session, "👎")
+		msg.Reply(context.Background(), c.session, "Twitter screen name not found.")
 		return
 	}
 
-	guild := s.Guild(msg.GuildID)
+	guild := c.session.Guild(msg.GuildID)
 	channel := util.FindChannelByName(channelName, guild)
 	if channel != nil {
-		twitterFollowCommand := repositories.TwitterFollowCommand{
-			User:         middleWareContent.UsersID,
+		twitterFollowCommand := model.TwitterFollowCommand{
+			User:         c.user.UsersID,
 			ScreenName:   screenName,
 			Channel:      channel.ID,
 			Guild:        msg.GuildID,
@@ -65,17 +81,17 @@ func (c *TwitterFollowCommand) ExecuteCommand(s disgord.Session, data *disgord.M
 		err := c.repo.SaveUserToFollow(&twitterFollowCommand)
 		if err != nil {
 			log.WithField("twitterFollowCommand", twitterFollowCommand).Error(err)
-			msg.React(context.Background(), s, "👎")
+			msg.React(context.Background(), c.session, "👎")
 			return
 		}
-		msg.React(context.Background(), s, "👍")
+		msg.React(context.Background(), c.session, "👍")
 	} else {
-		msg.React(context.Background(), s, "👎")
-		msg.Reply(context.Background(), s, "Channel not found.")
+		msg.React(context.Background(), c.session, "👎")
+		msg.Reply(context.Background(), c.session, "Channel not found.")
 	}
 }
 
-func RestartTwitterFollows(client *disgord.Client, dbClient repositories.TwitterFollowRepository, twitterClient *botTwitter.TwitterClient) {
+func RestartTwitterFollows(client disgord.Session, dbClient repositories.TwitterFollowRepository, twitterClient *botTwitter.TwitterClient) {
 	tweetHandler := func(tweet *twitter.Tweet) {
 		if tweet.InReplyToScreenName != "" {
 			return
@@ -108,7 +124,7 @@ func RestartTwitterFollows(client *disgord.Client, dbClient repositories.Twitter
 	}
 
 	var followedUsers []string
-	for _, followed := range  uniqueFollowedUsers{
+	for _, followed := range uniqueFollowedUsers {
 		followedUsers = append(followedUsers, followed.ScreenNameID)
 	}
 	twitterClient.AddUsersToTrack(followedUsers)

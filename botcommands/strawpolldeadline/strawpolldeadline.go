@@ -3,8 +3,8 @@ package strawpolldeadline
 import (
 	"context"
 	"discordbot/botcommands"
-	"discordbot/botcommands/discord"
 	"discordbot/repositories"
+	"discordbot/repositories/model"
 	"discordbot/strawpoll"
 	"discordbot/util"
 	"fmt"
@@ -18,34 +18,50 @@ import (
 
 const StrawPollDeadlineString = "strawpoll-deadline"
 
-type StrawpollDeadlineCommand struct {
+type strawpollDeadlineCommandFactory struct {
 	strawpollClient *strawpoll.Client
 	repo            repositories.StrawpollDeadlineRepository
+	session         disgord.Session
 }
 
-func (c *StrawpollDeadlineCommand) PrintHelp() string {
+func (c *strawpollDeadlineCommandFactory) PrintHelp() string {
 	return botcommands.CommandPrefix + StrawPollDeadlineString + "{strawpoll_url} {channel_name} {role_name} - Ping role in given channel when deadline is met and announce results."
 }
 
-func New(strawpollClient *strawpoll.Client, repo repositories.StrawpollDeadlineRepository) *StrawpollDeadlineCommand {
-	return &StrawpollDeadlineCommand{
+func NewCommandFactory(session disgord.Session, strawpollClient *strawpoll.Client, repo repositories.StrawpollDeadlineRepository) *strawpollDeadlineCommandFactory {
+	return &strawpollDeadlineCommandFactory{
 		strawpollClient: strawpollClient,
 		repo:            repo,
+		session:         session,
 	}
 }
 
-func (c *StrawpollDeadlineCommand) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate, middleWareContent discord.MiddleWareContent) {
-	msg := data.Message
+func (c *strawpollDeadlineCommandFactory) CreateRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+	return &strawpollDeadlineCommand {
+		strawpollDeadlineCommandFactory: c,
+		data: data,
+		user: user,
+	}
+}
 
-	split := strings.Split(middleWareContent.MessageContent, " ")
+type strawpollDeadlineCommand struct {
+	*strawpollDeadlineCommandFactory
+	data *disgord.MessageCreate
+	user *model.Users
+}
+
+func (c *strawpollDeadlineCommand) ExecuteMessageCreateCommand() {
+	msg := c.data.Message
+
+	split := strings.Split(msg.Content, " ")
 	if len(split) != 3 {
-		msg.Reply(context.Background(), s, "Incorrect number of arguments for command.")
+		msg.Reply(context.Background(), c.session, "Incorrect number of arguments for command.")
 		return
 	}
 
 	u, err := url.Parse(split[0])
 	if err != nil {
-		msg.Reply(context.Background(), s, "Error processing strawpoll url.")
+		msg.Reply(context.Background(), c.session, "Error processing strawpoll url.")
 		return
 	}
 
@@ -54,22 +70,22 @@ func (c *StrawpollDeadlineCommand) ExecuteCommand(s disgord.Session, data *disgo
 
 	now := time.Now()
 	if now.After(poll.Content.Deadline) {
-		msg.Reply(context.Background(), s, "Could not set timer for poll. Deadline either missing or deadline has passed.")
+		msg.Reply(context.Background(), c.session, "Could not set timer for poll. Deadline either missing or deadline has passed.")
 		return
 	}
 
 	channelName := split[1]
-	guild := s.Guild(msg.GuildID)
+	guild := c.session.Guild(msg.GuildID)
 	channel := util.FindChannelByName(channelName, guild)
 
 	roleName := split[2]
-	roles, _ := s.Guild(msg.GuildID).GetRoles()
+	roles, _ := c.session.Guild(msg.GuildID).GetRoles()
 	role := util.FindRoleByName(roleName, roles)
 
 	deadlineDuration := poll.Content.Deadline.Sub(now)
 	timeToWait := time.NewTimer(deadlineDuration)
-	strawpollDeadline := &repositories.StrawpollDeadline{
-		User:        middleWareContent.UsersID,
+	strawpollDeadline := &model.StrawpollDeadline{
+		User:        c.user.UsersID,
 		Guild:       msg.GuildID,
 		Channel:     channel.ID,
 		Role:        role.ID,
@@ -87,23 +103,23 @@ func (c *StrawpollDeadlineCommand) ExecuteCommand(s disgord.Session, data *disgo
 			}
 		}
 		result := fmt.Sprintf("%s Strawpoll has closed. The top vote for %s is %s with %d votes.", role.Mention(), poll.Content.Title, topAnswer.Answer, topAnswer.Votes)
-		s.Channel(channel.ID).CreateMessage(&disgord.CreateMessageParams{Content: result})
+		c.session.Channel(channel.ID).CreateMessage(&disgord.CreateMessageParams{Content: result})
 		err := c.repo.DeleteStrawpollDeadlineByID(strawpollDeadline.StrawpollDeadlineID)
 		if err != nil {
 			log.WithField("strawpoll", strawpollDeadline).Error(err)
 		}
 	}()
 
-	msg.React(context.Background(), s, "👍")
+	msg.React(context.Background(), c.session, "👍")
 }
 
-func RestartStrawpollDeadlines(client *disgord.Client, dbClient repositories.StrawpollDeadlineRepository, strawpollClient *strawpoll.Client) {
-	strawpolls, err := dbClient.GetAllStrawpollDeadlines() 
+func RestartStrawpollDeadlines(client disgord.Session, dbClient repositories.StrawpollDeadlineRepository, strawpollClient *strawpoll.Client) {
+	strawpolls, err := dbClient.GetAllStrawpollDeadlines()
 	if err != nil {
 		log.Error(err)
 		return
 	}
-	for _, strawpoll := range strawpolls{
+	for _, strawpoll := range strawpolls {
 
 		poll, err := strawpollClient.GetPoll(strawpoll.StrawpollID)
 		if err != nil {
@@ -118,7 +134,7 @@ func RestartStrawpollDeadlines(client *disgord.Client, dbClient repositories.Str
 		}
 
 		timeToWait := time.NewTimer(poll.Content.Deadline.Sub(now))
-		go func(strawpoll repositories.StrawpollDeadline) {
+		go func(strawpoll model.StrawpollDeadline) {
 			<-timeToWait.C
 			poll, _ := strawpollClient.GetPoll(strawpoll.StrawpollID)
 			pollAnswers := poll.Content.Poll.PollAnswers

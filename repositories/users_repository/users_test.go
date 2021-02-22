@@ -4,7 +4,7 @@ package users_repository_test
 
 import (
 	"database/sql"
-	"discordbot/repositories"
+	"discordbot/repositories/model"
 	"discordbot/repositories/users_repository"
 	"io/ioutil"
 	"log"
@@ -37,7 +37,7 @@ func TestGetUserByDiscordId(t *testing.T) {
 
 	repo := users_repository.New(db)
 
-	user := repositories.Users{
+	user := model.Users{
 		UsersID: 1,
 		DiscordUsersID: 1234,
 		UserName: "test",
@@ -46,7 +46,7 @@ func TestGetUserByDiscordId(t *testing.T) {
 
 	db.Exec(`INSERT INTO users(users_id, discord_users_id, user_name) VALUES (?, ?, ?);`, user.UsersID, user.DiscordUsersID, user.UserName)
 
-	result := repo.GetUserByDiscordId(user.DiscordUsersID)
+	result, _ := repo.GetUserByDiscordId(user.DiscordUsersID)
 
 	if !reflect.DeepEqual(user, result) {
 		t.Error("Error retrieving users. Mismatched results.")
@@ -59,7 +59,7 @@ func TestSaveUser(t *testing.T) {
 
 	repo := users_repository.New(db)
 
-	user := repositories.Users{
+	user := model.Users{
 		UsersID: 1,
 		DiscordUsersID: 1234,
 		UserName: "test",
@@ -73,7 +73,7 @@ func TestSaveUser(t *testing.T) {
 		return
 	}
 
-	result := repo.GetUserByDiscordId(user.DiscordUsersID)
+	result, _ := repo.GetUserByDiscordId(user.DiscordUsersID)
 
 	if !reflect.DeepEqual(user, result) {
 		t.Error("Error retrieving users. Mismatched results.")
@@ -86,7 +86,7 @@ func TestIsUserUsingCommand(t *testing.T) {
 
 	repo := users_repository.New(db)
 
-	user := repositories.Users{
+	user := model.Users{
 		UsersID: 1,
 		DiscordUsersID: 1234,
 		UserName: "test",

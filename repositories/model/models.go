@@ -1,4 +1,4 @@
-package repositories
+package model
 
 import "github.com/andersfylling/disgord"
 

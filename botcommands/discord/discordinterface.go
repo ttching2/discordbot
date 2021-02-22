@@ -2,7 +2,7 @@ package discord
 
 import (
 	"context"
-	"discordbot/repositories"
+	"discordbot/repositories/model"
 
 	"github.com/andersfylling/disgord"
 )
@@ -24,9 +24,9 @@ type MessageCreateHandler interface {
 
 type DiscordMessageInfo struct {
 	Content   string
-	UserID    repositories.Snowflake
+	UserID    model.Snowflake
 	AuthorID  int64
-	ChannelID repositories.Snowflake
+	ChannelID model.Snowflake
 	Reply     func(ctx context.Context, s disgord.Session, data ...interface{}) (*disgord.Message, error)
 }
 
