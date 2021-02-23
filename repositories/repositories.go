@@ -1,41 +1,43 @@
 package repositories
 
+import "discordbot/repositories/model"
+
 type UsersRepository interface {
-	GetUserByDiscordId(user Snowflake) (Users, error)
-	DoesUserExist(user Snowflake) (bool, error)
-	SaveUser(user *Users) error
+	GetUserByDiscordId(user model.Snowflake) (model.Users, error)
+	DoesUserExist(user model.Snowflake) bool
+	SaveUser(*model.Users) error
 }
 
 /*
 RoleReactRepository interface for role commands to db
 */
 type RoleReactRepository interface {
-	SaveCommandInProgress(command *CommandInProgress) error
-	SaveRoleCommand(roleCommand *RoleCommand) error
-	IsUserUsingCommand(user Snowflake, channel Snowflake) (bool, error)
-	GetCommandInProgress(user Snowflake, channel Snowflake) (CommandInProgress, error)
-	RemoveCommandProgress(user Snowflake, channel Snowflake) error
-	IsRoleCommandMessage(msg Snowflake, emoji Snowflake) (bool, error)
-	GetRoleCommand(msg Snowflake) (RoleCommand, error)
-	RemoveRoleReactCommand(msg Snowflake) error
+	SaveCommandInProgress(command *model.CommandInProgress) error
+	SaveRoleCommand(roleCommand *model.RoleCommand) error
+	IsUserUsingCommand(user model.Snowflake, channel model.Snowflake) (bool, error)
+	GetCommandInProgress(user model.Snowflake, channel model.Snowflake) (model.CommandInProgress, error)
+	RemoveCommandProgress(user model.Snowflake, channel model.Snowflake) error
+	IsRoleCommandMessage(msg model.Snowflake, emoji model.Snowflake) (bool, error)
+	GetRoleCommand(msg model.Snowflake) (model.RoleCommand, error)
+	RemoveRoleReactCommand(msg model.Snowflake) error
 }
 
 /*
 TwitterFollowRepository interface for twitter follows
 */
 type TwitterFollowRepository interface {
-	GetFollowedUser(screenName string) ([]TwitterFollowCommand, error)
-	SaveUserToFollow(twitterFollow *TwitterFollowCommand) error
-	DeleteFollowedUser(screenName string, guild Snowflake) error
-	GetAllFollowedUsersInServer(guild Snowflake) ([]TwitterFollowCommand, error)
-	GetAllUniqueFollowedUsers() ([]TwitterFollowCommand, error)
+	GetFollowedUser(screenName string) ([]model.TwitterFollowCommand, error)
+	SaveUserToFollow(twitterFollow *model.TwitterFollowCommand) error
+	DeleteFollowedUser(screenName string, guild model.Snowflake) error
+	GetAllFollowedUsersInServer(guild model.Snowflake) ([]model.TwitterFollowCommand, error)
+	GetAllUniqueFollowedUsers() ([]model.TwitterFollowCommand, error)
 }
 
 /*
 StrawpollDeadlineRepository interface for strawpoll commands
 */
 type StrawpollDeadlineRepository interface {
-	SaveStrawpollDeadline(strawpollDeadline *StrawpollDeadline) error
-	GetAllStrawpollDeadlines() ([]StrawpollDeadline, error)
+	SaveStrawpollDeadline(*model.StrawpollDeadline) error
+	GetAllStrawpollDeadlines() ([]model.StrawpollDeadline, error)
 	DeleteStrawpollDeadlineByID(ID int64) error
 }

@@ -2,7 +2,7 @@ package strawpolldeadline
 
 import (
 	"database/sql"
-	"discordbot/repositories"
+	"discordbot/repositories/model"
 )
 
 type StrawpollDeadlineRepository struct {
@@ -15,7 +15,7 @@ func New(db *sql.DB) *StrawpollDeadlineRepository {
 	}
 }
 
-func (r *StrawpollDeadlineRepository) SaveStrawpollDeadline(strawpollDeadline *repositories.StrawpollDeadline) error {
+func (r *StrawpollDeadlineRepository) SaveStrawpollDeadline(strawpollDeadline *model.StrawpollDeadline) error {
 	const query = `INSERT INTO strawpoll_deadline(strawpoll_id, author, guild, channel, role) VALUES (?, ?, ?, ?, ?);`
 
 	tx, err := r.db.Begin()
@@ -54,18 +54,18 @@ func (r *StrawpollDeadlineRepository) SaveStrawpollDeadline(strawpollDeadline *r
 	return nil
 }
 
-func (r *StrawpollDeadlineRepository) GetAllStrawpollDeadlines() ([]repositories.StrawpollDeadline, error) {
+func (r *StrawpollDeadlineRepository) GetAllStrawpollDeadlines() ([]model.StrawpollDeadline, error) {
 	const query = `SELECT * FROM strawpoll_deadline;`
 
 	rows, _ := r.db.Query(query)
 	if rows.Err() != nil {
-		return []repositories.StrawpollDeadline{}, rows.Err()
+		return []model.StrawpollDeadline{}, rows.Err()
 	}
 
-	completedCommand := []repositories.StrawpollDeadline{}
+	completedCommand := []model.StrawpollDeadline{}
 
 	for rows.Next() {
-		row := repositories.StrawpollDeadline{}
+		row := model.StrawpollDeadline{}
 		err := rows.Scan(
 			&row.StrawpollDeadlineID,
 			&row.User,
@@ -74,7 +74,7 @@ func (r *StrawpollDeadlineRepository) GetAllStrawpollDeadlines() ([]repositories
 			&row.Channel,
 			&row.Role)
 		if err != nil {
-			return []repositories.StrawpollDeadline{}, rows.Err()
+			return []model.StrawpollDeadline{}, rows.Err()
 		}
 		completedCommand = append(completedCommand, row)
 	}

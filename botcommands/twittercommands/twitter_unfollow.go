@@ -3,8 +3,8 @@ package twittercommands
 import (
 	"context"
 	"discordbot/botcommands"
-	"discordbot/botcommands/discord"
 	"discordbot/repositories"
+	"discordbot/repositories/model"
 	botTwitter "discordbot/twitter"
 
 	"github.com/andersfylling/disgord"
@@ -13,48 +13,64 @@ import (
 
 const TwitterUnfollowString = "twitter-unfollow"
 
-type TwitterUnfollowCommand struct {
+type twitterUnfollowCommandFactory struct {
 	twitterClient *botTwitter.TwitterClient
 	repo          repositories.TwitterFollowRepository
+	session       disgord.Session
 }
 
-func (c *TwitterUnfollowCommand) PrintHelp() string {
+func (c *twitterUnfollowCommandFactory) PrintHelp() string {
 	return botcommands.CommandPrefix + TwitterUnfollowString + " {screen_name} - unfollows Twitter user given the twitter users username."
 }
 
-func NewTwitterUnfollowCommand(twitterClient *botTwitter.TwitterClient, repo repositories.TwitterFollowRepository) *TwitterUnfollowCommand {
-	return &TwitterUnfollowCommand{
+func NewTwitterUnfollowCommandFactory(session disgord.Session, twitterClient *botTwitter.TwitterClient, repo repositories.TwitterFollowRepository) *twitterUnfollowCommandFactory {
+	return &twitterUnfollowCommandFactory{
 		twitterClient: twitterClient,
-		repo: repo,
+		repo:          repo,
+		session:       session,
 	}
 }
 
-func (c *TwitterUnfollowCommand) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate, middleWareContent discord.MiddleWareContent) {
-	msg := data.Message
-	
+func (c *twitterUnfollowCommandFactory) CreateRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+	return &twitterUnfollowCommand{
+		twitterUnfollowCommandFactory: c,
+		data:                          data,
+		user:                          user,
+	}
+}
+
+type twitterUnfollowCommand struct {
+	*twitterUnfollowCommandFactory
+	data *disgord.MessageCreate
+	user *model.Users
+}
+
+func (c *twitterUnfollowCommand) ExecuteMessageCreateCommand() {
+	msg := c.data.Message
+
 	followedUsers, err := c.repo.GetAllUniqueFollowedUsers()
 	if err != nil {
-		msg.React(context.Background(), s, "👎")
-		log.WithField("middlewareContent", middleWareContent).Error(err)
-		return 
+		msg.React(context.Background(), c.session, "👎")
+		log.Error(err)
+		return
 	}
-	
+
 	foundUser := false
 	for _, user := range followedUsers {
-		if user.ScreenName == middleWareContent.MessageContent {
+		if user.ScreenName == msg.Content {
 			foundUser = true
 			break
 		}
 	}
-	
+
 	if !foundUser {
-		msg.Reply(context.Background(), s, "Screen name not being followed.")
-		msg.React(context.Background(), s, "👎")
+		msg.Reply(context.Background(), c.session, "Screen name not being followed.")
+		msg.React(context.Background(), c.session, "👎")
 		return
 	}
 
-	c.repo.DeleteFollowedUser(middleWareContent.MessageContent, msg.GuildID)
-	userID := c.twitterClient.SearchForUser(middleWareContent.MessageContent)
+	c.repo.DeleteFollowedUser(msg.Content, msg.GuildID)
+	userID := c.twitterClient.SearchForUser(msg.Content)
 	c.twitterClient.RemoveUserFromFollowList(userID)
-	msg.React(context.Background(), s, "👍")
+	msg.React(context.Background(), c.session, "👍")
 }

@@ -1,17 +1,15 @@
 package main
 
 import (
+	"container/list"
 	"context"
 	"database/sql"
-	"encoding/json"
 	"os"
 
 	"discordbot/botcommands"
-	"discordbot/botcommands/discord"
-	"discordbot/botcommands/help"
-	"discordbot/botcommands/rolemessage"
 	"discordbot/botcommands/strawpolldeadline"
 	"discordbot/botcommands/twittercommands"
+	"discordbot/repositories"
 	"discordbot/repositories/rolecommand"
 	strawpollrepo "discordbot/repositories/strawpolldeadline"
 	"discordbot/repositories/twitterfollow"
@@ -37,21 +35,32 @@ type discordConfig struct {
 	botToken string
 }
 
-type BotConfig struct {
+type botConfig struct {
 	DiscordConfig   discordConfig
 	TwitterConfig   myTwitter.TwitterClientConfig
 	StrawPollConfig strawpoll.StrawPollConfig
 }
 
 type discordBot struct {
-	twitterClient    *myTwitter.TwitterClient
-	strawpollClient  *strawpoll.Client
-	commands         map[string]interface{}
-	customMiddleWare *middlewareHolder
+	*jobQueue
+}
+
+type jobQueue struct {
+	onMessageCreate  *list.List
+	onReactionAdd    *list.List
+	onReactionRemove *list.List
+	onMessageDelete  *list.List
+}
+
+type repositoryContainer struct {
+	roleCommandRepo   repositories.RoleReactRepository
+	twitterFollowRepo repositories.TwitterFollowRepository
+	strawpollRepo     repositories.StrawpollDeadlineRepository
+	usersRepo         repositories.UsersRepository
 }
 
 func main() {
-	botConfig := BotConfig{
+	botConfig := botConfig{
 		DiscordConfig: discordConfig{
 			botToken: os.Getenv("DISCORD_TOKEN"),
 		},
@@ -71,11 +80,11 @@ func main() {
 		Cache:    &disgord.CacheNop{},
 	})
 
-	bot := initializeBot(client, botConfig)
-	run(client, bot)
+	bot, customMiddleWare := initializeBot(client, botConfig)
+	run(client, bot, customMiddleWare)
 }
 
-func newSqlDb() *sql.DB {
+func newSQLDB() *sql.DB {
 	client, err := sql.Open("sqlite3", "botdb?_foreign_keys=on")
 
 	if err != nil {
@@ -86,98 +95,105 @@ func newSqlDb() *sql.DB {
 	return client
 }
 
-func initializeBot(client *disgord.Client, config BotConfig) discordBot {
+func initializeBot(s disgord.Session, config botConfig) (*discordBot, *middlewareHolder) {
+	repos := newRepositoryContainer()
+	jobQueue := newJobQueue()
 	twitterClient := myTwitter.NewClient(config.TwitterConfig)
 	strawpollClient := strawpoll.New(config.StrawPollConfig)
-	sqlDb := newSqlDb()
 
-	roleCommandRepository := rolecommand.New(sqlDb)
-	twitterCommandRepository := twitterfollow.New(sqlDb)
-	strawpollCommandRepository := strawpollrepo.New(sqlDb)
-	usersRepository := users_repository.New(sqlDb)
+	twittercommands.RestartTwitterFollows(s, repos.twitterFollowRepo, twitterClient)
 
-	twittercommands.RestartTwitterFollows(client, twitterCommandRepository, twitterClient)
+	strawpolldeadline.RestartStrawpollDeadlines(s, repos.strawpollRepo, strawpollClient)
+	customMiddleWare, err := newMiddlewareHolder(s, jobQueue, repos, twitterClient, strawpollClient)
+	discordBot := &discordBot{jobQueue: jobQueue}
 
-	strawpolldeadline.RestartStrawpollDeadlines(client, strawpollCommandRepository, strawpollClient)
-
-	commands := make(map[string]interface{})
-	commands[rolemessage.RoleReactString] = rolemessage.New(roleCommandRepository)
-	commands[twittercommands.TwitterFollowString] = twittercommands.NewTwitterFollowCommand(twitterClient, twitterCommandRepository)
-	commands[twittercommands.TwitterFollowListString] = twittercommands.NewTwitterFollowListCommand(twitterCommandRepository)
-	commands[twittercommands.TwitterUnfollowString] = twittercommands.NewTwitterUnfollowCommand(twitterClient, twitterCommandRepository)
-	commands[strawpolldeadline.StrawPollDeadlineString] = strawpolldeadline.New(strawpollClient, strawpollCommandRepository)
-
-	var commandList []help.PrintHelp
-	for _, c := range commands {
-		commandList = append(commandList, c.(help.PrintHelp))
+	if err != nil {
+		log.Fatal(err)
 	}
-	commands[help.HelpString] = help.New(commandList[:])
 
-	customMiddleWare, _ := newMiddlewareHolder(context.Background(), client, roleCommandRepository, usersRepository)
+	return discordBot, customMiddleWare
+}
 
-	return discordBot{
-		twitterClient:    twitterClient,
-		commands:         commands,
-		strawpollClient:  strawpollClient,
-		customMiddleWare: customMiddleWare,
+func newRepositoryContainer() *repositoryContainer {
+	sqlDb := newSQLDB()
+	return &repositoryContainer{
+		roleCommandRepo:   rolecommand.New(sqlDb),
+		twitterFollowRepo: twitterfollow.New(sqlDb),
+		strawpollRepo:     strawpollrepo.New(sqlDb),
+		usersRepo:         users_repository.New(sqlDb),
 	}
 }
 
-func run(client *disgord.Client, bot discordBot) {
-
+func run(client *disgord.Client, bot *discordBot, customMiddleWare *middlewareHolder) {
+	
 	content, _ := std.NewMsgFilter(context.Background(), client)
 	content.SetPrefix(botcommands.CommandPrefix)
 
-	//TODO Find a better way for doing this
-	reactMessage := bot.commands[rolemessage.RoleReactString].(*rolemessage.RoleMessageCommand)
 	// listen for messages
 	client.Gateway().
-		WithMiddleware(bot.customMiddleWare.filterBotMsg, bot.customMiddleWare.commandInUse, bot.customMiddleWare.createMessageContentForNonCommand).
-		MessageCreate(bot.SpecialCase)
+		WithMiddleware(customMiddleWare.filterBotMsg, customMiddleWare.commandInUse, customMiddleWare.createMessageContentForNonCommand).
+		MessageCreate(bot.handleMessageCreate)
 	client.Gateway().
-		WithMiddleware(bot.customMiddleWare.filterBotMsg, content.StripPrefix, bot.customMiddleWare.isFromAdmin, bot.customMiddleWare.checkAndSaveUser).
-		MessageCreate(bot.ExecuteCommand)
+		WithMiddleware(customMiddleWare.filterBotMsg, content.StripPrefix, customMiddleWare.isFromAdmin, customMiddleWare.handleDiscordEvent).
+		MessageCreate(bot.handleMessageCreate)
 	client.Gateway().
-		WithMiddleware(bot.customMiddleWare.reactionMessage).
-		MessageDelete(reactMessage.RemoveReactRoleMessage)
+		WithMiddleware(customMiddleWare.handleDiscordEvent).
+		MessageDelete(bot.messageDelete)
 	client.Gateway().
-		WithMiddleware(bot.customMiddleWare.filterOutBots, bot.customMiddleWare.reactionMessage).
-		MessageReactionAdd(reactMessage.AddRole)
+		WithMiddleware(customMiddleWare.filterOutBots, customMiddleWare.handleDiscordEvent).
+		MessageReactionAdd(bot.reactionAdd)
 	client.Gateway().
-		WithMiddleware(bot.customMiddleWare.filterOutBots, bot.customMiddleWare.reactionMessage).
-		MessageReactionRemove(reactMessage.RemoveRole)
+		WithMiddleware(customMiddleWare.filterOutBots, customMiddleWare.handleDiscordEvent).
+		MessageReactionRemove(bot.reactonRemove)
 
 	// connect now, and disconnect on system interrupt
 	client.Gateway().StayConnectedUntilInterrupted()
 }
 
-func (bot *discordBot) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate) {
-	msg := data.Message
-	middleWareContent := discord.MiddleWareContent{}
-	json.Unmarshal([]byte(msg.Content), &middleWareContent)
-	//TODO could be done better :/
-	if _, ok := bot.commands[middleWareContent.Command]; !ok {
-		return
-	}
-	bot.commands[middleWareContent.Command].(discord.MessageCreateHandler).ExecuteCommand(s, data, middleWareContent)
+type onMessageCreateCommand interface {
+	ExecuteMessageCreateCommand()
 }
 
-//TODO REDO THIS SOMEHOW :^(
-func (bot *discordBot) SpecialCase(s disgord.Session, data *disgord.MessageCreate) {
-	msg := data.Message
-	middleWareContent := discord.MiddleWareContent{}
-	json.Unmarshal([]byte(msg.Content), &middleWareContent)
-	bot.commands[rolemessage.RoleReactString].(*rolemessage.RoleMessageCommand).ReactRoleMessage(s, data, middleWareContent)
+type onReactionRemove interface {
+	OnReactionRemove()
 }
 
-func (bot *discordBot) reactionAdd(disgord.Session, *disgord.MessageReactionAdd) {
-
+type onReactionAdd interface {
+	OnReactionAdd()
 }
 
-func (bot *discordBot) reactonRemove(disgord.Session, *disgord.MessageReactionRemove) {
-
+type onMessageDelete interface {
+	OnMessageDelete()
 }
 
-func (bot *discordBot) messageDelete(disgord.Session, *disgord.MessageDelete) {
+func (c *discordBot) handleMessageCreate(s disgord.Session, data *disgord.MessageCreate) {
+	ele := c.onMessageCreate.Front()
+	c.onMessageCreate.Remove(ele)
+	ele.Value.(onMessageCreateCommand).ExecuteMessageCreateCommand()
+}
 
+func (c *discordBot) reactionAdd(disgord.Session, *disgord.MessageReactionAdd) {
+	ele := c.onReactionAdd.Front()
+	c.onReactionAdd.Remove(ele)
+	ele.Value.(onReactionAdd).OnReactionAdd()
+}
+
+func (c *discordBot) reactonRemove(disgord.Session, *disgord.MessageReactionRemove) {
+	ele := c.onReactionRemove.Front()
+	c.onReactionRemove.Remove(ele)
+	ele.Value.(onReactionRemove).OnReactionRemove()
+}
+
+func (c *discordBot) messageDelete(disgord.Session, *disgord.MessageDelete) {
+	ele := c.onMessageDelete.Front()
+	c.onMessageDelete.Remove(ele)
+	ele.Value.(onMessageDelete).OnMessageDelete()
+}
+
+func newJobQueue() *jobQueue {
+	return &jobQueue{
+		onMessageCreate:  list.New(),
+		onReactionAdd:    list.New(),
+		onReactionRemove: list.New(),
+		onMessageDelete:  list.New()}
 }

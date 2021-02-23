@@ -4,7 +4,7 @@ package strawpolldeadline_test
 
 import (
 	"database/sql"
-	"discordbot/repositories"
+	"discordbot/repositories/model"
 	"discordbot/repositories/strawpolldeadline"
 	"io/ioutil"
 	"log"
@@ -34,7 +34,7 @@ func TestSaveStrawpollDeadline(t *testing.T) {
 
 	spDB := strawpolldeadline.New(db)
 
-	strawpolldeadline := repositories.StrawpollDeadline{
+	strawpolldeadline := model.StrawpollDeadline{
 		User: 1234,
 		StrawpollID: "abc",
 		Guild: 1234,
@@ -49,7 +49,7 @@ func TestSaveStrawpollDeadline(t *testing.T) {
 	}
 
 	row := db.QueryRow(`SELECT * FROM strawpoll_deadline WHERE strawpoll_deadline_id = 1`)
-	result := repositories.StrawpollDeadline{}
+	result := model.StrawpollDeadline{}
 	err = row.Scan(
 		&result.StrawpollDeadlineID,
 		&result.User,
@@ -75,7 +75,7 @@ func TestSaveWithNonExistantUser(t *testing.T) {
 
 	spDB := strawpolldeadline.New(db)
 
-	strawpolldeadline := repositories.StrawpollDeadline{
+	strawpolldeadline := model.StrawpollDeadline{
 		User: 2,
 		StrawpollID: "abc",
 		Guild: 1234,
@@ -96,7 +96,7 @@ func TestGetAllStrawpolls(t *testing.T) {
 
 	spDB := strawpolldeadline.New(db)
 
-	s1 := repositories.StrawpollDeadline{
+	s1 := model.StrawpollDeadline{
 		StrawpollDeadlineID: 1,
 		User: 1234,
 		StrawpollID: "abc",
@@ -104,7 +104,7 @@ func TestGetAllStrawpolls(t *testing.T) {
 		Channel: 5678,
 		Role: 1357,
 	}
-	s2 := repositories.StrawpollDeadline{
+	s2 := model.StrawpollDeadline{
 		StrawpollDeadlineID: 2,
 		User: 1234,
 		StrawpollID: "absd",
@@ -151,7 +151,7 @@ func TestDeleteStrawpollDeadline(t *testing.T) {
 
 	spDB := strawpolldeadline.New(db)
 
-	s1 := repositories.StrawpollDeadline{
+	s1 := model.StrawpollDeadline{
 		StrawpollDeadlineID: 1,
 		User: 1234,
 		StrawpollID: "abc",
@@ -169,7 +169,7 @@ func TestDeleteStrawpollDeadline(t *testing.T) {
 	spDB.DeleteStrawpollDeadlineByID(s1.StrawpollDeadlineID)
 
 	row := db.QueryRow(`SELECT * FROM strawpoll_deadline WHERE strawpoll_deadline_id = 1`)
-	result := repositories.StrawpollDeadline{}
+	result := model.StrawpollDeadline{}
 	err = row.Scan(
 		&result.StrawpollDeadlineID,
 		&result.User,

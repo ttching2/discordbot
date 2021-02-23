@@ -5,6 +5,7 @@ import (
 	"discordbot/botcommands"
 	"discordbot/botcommands/discord"
 	"discordbot/repositories"
+	"discordbot/repositories/model"
 	"discordbot/util"
 	"strings"
 
@@ -15,25 +16,41 @@ import (
 
 const RoleReactString = "react"
 
-type RoleMessageCommand struct {
-	repo repositories.RoleReactRepository
+type roleCommandRequestFactory struct {
+	repo    repositories.RoleReactRepository
+	session disgord.Session
 }
 
-func New(repo repositories.RoleReactRepository) *RoleMessageCommand {
-	return &RoleMessageCommand{
-		repo: repo,
+func NewRoleCommandRequestFactory(s disgord.Session, repo repositories.RoleReactRepository) *roleCommandRequestFactory {
+	return &roleCommandRequestFactory{
+		session: s,
+		repo:    repo,
 	}
 }
 
-func (c *RoleMessageCommand) PrintHelp() string { 
+func (c *roleCommandRequestFactory) PrintHelp() string {
 	return botcommands.CommandPrefix + RoleReactString + " - command to create a reaction role message for assigning roles to people. Usage follow commands given by bot."
 }
 
-func (c *RoleMessageCommand) ExecuteCommand(s disgord.Session, data *disgord.MessageCreate, middleWareContent discord.MiddleWareContent) {
-	msg := data.Message
+func (c *roleCommandRequestFactory) CreateRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+	return &roleCommandRequest{
+		roleCommandRequestFactory: c,
+		data:                      data,
+		user:                      user,
+	}
+}
 
-	msg.Reply(context.Background(), s, "Which channel should this message be sent in.")
-	command := repositories.CommandInProgress{
+type roleCommandRequest struct {
+	*roleCommandRequestFactory
+	data *disgord.MessageCreate
+	user *model.Users
+}
+
+func (c roleCommandRequest) ExecuteMessageCreateCommand() {
+	msg := c.data.Message
+
+	msg.Reply(context.Background(), c.session, "Which channel should this message be sent in.")
+	command := model.CommandInProgress{
 		Guild:         msg.GuildID,
 		OriginChannel: msg.ChannelID,
 		User:          msg.Author.ID,
@@ -41,54 +58,65 @@ func (c *RoleMessageCommand) ExecuteCommand(s disgord.Session, data *disgord.Mes
 	c.repo.SaveCommandInProgress(&command)
 }
 
-func (c *RoleMessageCommand) ReactRoleMessage(s disgord.Session, data *disgord.MessageCreate, middleWareContent discord.MiddleWareContent) {
-	msg := data.Message
+type inProgressRoleCommand struct {
+	repo    repositories.RoleReactRepository
+	session disgord.Session
+	data    *disgord.MessageCreate
+	user    *model.Users
+}
+
+func NewInProgressRoleCommand(s disgord.Session, r repositories.RoleReactRepository, d *disgord.MessageCreate, u *model.Users) *inProgressRoleCommand {
+	return &inProgressRoleCommand{
+		session: s,
+		repo:    r,
+		data:    d,
+		user:    u,
+	}
+}
+
+func (c *inProgressRoleCommand) ExecuteMessageCreateCommand() {
+	msg := c.data.Message
 
 	commandInProgress, err := c.repo.GetCommandInProgress(msg.Author.ID, msg.ChannelID)
 	if err != nil {
-		msg.React(context.Background(), s, "👎")
+		msg.React(context.Background(), c.session, "👎")
 		log.Error(err)
 		return
 	}
-	guild := s.Guild(msg.GuildID)
-	messageContents := discord.DiscordMessageInfo{
-		Content:   middleWareContent.MessageContent,
-		UserID:  msg.Author.ID,
-		AuthorID: middleWareContent.UsersID,
-		ChannelID: msg.ChannelID,
-		Reply:     msg.Reply,
-	}
+	guild := c.session.Guild(msg.GuildID)
+
 	switch commandInProgress.Stage {
 	case 1:
-		c.getChannelFromUser(guild, messageContents, commandInProgress, s)
+		c.getChannelFromUser(guild, commandInProgress, c.session)
 	case 2:
-		c.getRoleFromUser(guild, messageContents, commandInProgress, s)
+		c.getRoleFromUser(guild, commandInProgress, c.session)
 	case 3:
-		c.getEmojiFromUser(guild, messageContents, commandInProgress, s)
+		c.getEmojiFromUser(guild, commandInProgress, c.session)
 	case 4:
 		targetChannel := util.FindTargetChannel(commandInProgress.TargetChannel, guild)
 		reactEmoji := util.FindTargetEmoji(commandInProgress.Emoji, guild)
 
-		msg, err := targetChannel.SendMsg(context.Background(), s, &disgord.Message{Content: middleWareContent.MessageContent})
+		msg, err := targetChannel.SendMsg(context.Background(), c.session, msg)
 		if err != nil {
 			log.Error(err)
 			return
 		}
-		msg.React(context.Background(), s, reactEmoji)
-		err = c.saveRoleCommand(messageContents.AuthorID, commandInProgress, msg.ID)
+		msg.React(context.Background(), c.session, reactEmoji)
+		err = c.saveRoleCommand(c.user.UsersID, commandInProgress, msg.ID)
 		if err != nil {
 			return
 		}
-		c.repo.RemoveCommandProgress(messageContents.UserID, messageContents.ChannelID)
+		c.repo.RemoveCommandProgress(c.user.DiscordUsersID, msg.ChannelID)
 	default:
 	}
 }
 
-func (c *RoleMessageCommand) getChannelFromUser(g discord.Guild, msg discord.DiscordMessageInfo, commandInProgress repositories.CommandInProgress, s disgord.Session) {
+func (c *inProgressRoleCommand) getChannelFromUser(g discord.Guild, commandInProgress model.CommandInProgress, s disgord.Session) {
+	msg := c.data.Message
 	channel := util.FindChannelByName(msg.Content, g)
 	if channel == nil {
 		msg.Reply(context.Background(), s, "Channel not found. Aborting command.")
-		c.repo.RemoveCommandProgress(msg.UserID, msg.ChannelID)
+		c.repo.RemoveCommandProgress(msg.Author.ID, msg.ChannelID)
 		return
 	}
 	commandInProgress.TargetChannel = channel.ID
@@ -97,12 +125,13 @@ func (c *RoleMessageCommand) getChannelFromUser(g discord.Guild, msg discord.Dis
 	c.repo.SaveCommandInProgress(&commandInProgress)
 }
 
-func (c *RoleMessageCommand) getRoleFromUser(g discord.Guild, msg discord.DiscordMessageInfo, commandInProgress repositories.CommandInProgress, s disgord.Session) {
+func (c *inProgressRoleCommand) getRoleFromUser(g discord.Guild, commandInProgress model.CommandInProgress, s disgord.Session) {
+	msg := c.data.Message
 	roles, _ := g.GetRoles()
 	role := util.FindRoleByName(msg.Content, roles)
 	if role == nil {
 		msg.Reply(context.Background(), s, "Role not found. Aborting command.")
-		c.repo.RemoveCommandProgress(msg.UserID, msg.ChannelID)
+		c.repo.RemoveCommandProgress(msg.Author.ID, msg.ChannelID)
 		return
 	}
 	commandInProgress.Role = role.ID
@@ -111,14 +140,15 @@ func (c *RoleMessageCommand) getRoleFromUser(g discord.Guild, msg discord.Discor
 	c.repo.SaveCommandInProgress(&commandInProgress)
 }
 
-func (c *RoleMessageCommand) getEmojiFromUser(g discord.Guild, msg discord.DiscordMessageInfo, commandInProgress repositories.CommandInProgress, s disgord.Session) {
+func (c *inProgressRoleCommand) getEmojiFromUser(g discord.Guild, commandInProgress model.CommandInProgress, s disgord.Session) {
+	msg := c.data.Message
 	emojis, _ := g.GetEmojis()
 	//TODO if it uses a unicode emoji we get a panik
 	emojiName := strings.Split(msg.Content, ":")
 	emoji := util.FindEmojiByName(emojiName[1], emojis)
 	if emoji == nil {
 		msg.Reply(context.Background(), s, "Reaction not found. Aborting command.")
-		c.repo.RemoveCommandProgress(msg.UserID, msg.ChannelID)
+		c.repo.RemoveCommandProgress(msg.Author.ID, msg.ChannelID)
 		return
 	}
 	commandInProgress.Emoji = emoji.ID
@@ -127,8 +157,8 @@ func (c *RoleMessageCommand) getEmojiFromUser(g discord.Guild, msg discord.Disco
 	c.repo.SaveCommandInProgress(&commandInProgress)
 }
 
-func (c *RoleMessageCommand) saveRoleCommand(authorID int64, commandInProgress repositories.CommandInProgress, botMsgID repositories.Snowflake) error {
-	roleCommand := repositories.RoleCommand {
+func (c *inProgressRoleCommand) saveRoleCommand(authorID int64, commandInProgress model.CommandInProgress, botMsgID model.Snowflake) error {
+	roleCommand := model.RoleCommand{
 		User:    authorID,
 		Guild:   commandInProgress.Guild,
 		Role:    commandInProgress.Role,
@@ -146,25 +176,65 @@ func (c *RoleMessageCommand) saveRoleCommand(authorID int64, commandInProgress r
 	return nil
 }
 
-func (c *RoleMessageCommand) RemoveReactRoleMessage(s disgord.Session, data *disgord.MessageDelete) {
-	c.repo.RemoveRoleReactCommand(data.MessageID)
+type removeRoleMessage struct {
+	repo repositories.RoleReactRepository
+	data *disgord.MessageDelete
+}
+
+func NewRemoveRoleMessage(r repositories.RoleReactRepository, d *disgord.MessageDelete) *removeRoleMessage {
+	return &removeRoleMessage{
+		repo: r,
+		data: d,
+	}
+}
+
+func (c removeRoleMessage) OnMessageDelete() {
+	c.repo.RemoveRoleReactCommand(c.data.MessageID)
+}
+
+type addRoleReact struct {
+	repo    repositories.RoleReactRepository
+	session disgord.Session
+	data    *disgord.MessageReactionAdd
+}
+
+func NewAddRoleReact(r repositories.RoleReactRepository, s disgord.Session, d *disgord.MessageReactionAdd) *addRoleReact {
+	return &addRoleReact{
+		repo:    r,
+		session: s,
+		data:    d,
+	}
 }
 
 //Bot role needs to be above role to give the role.
-func (c *RoleMessageCommand) AddRole(s disgord.Session, data *disgord.MessageReactionAdd) {
-	userID := data.UserID
-	command, err := c.repo.GetRoleCommand(data.MessageID)
+func (c *addRoleReact) OnReactionAdd() {
+	userID := c.data.UserID
+	command, err := c.repo.GetRoleCommand(c.data.MessageID)
 	if err != nil {
 		log.Error(err)
 	}
-	s.Guild(command.Guild).Member(userID).AddRole(command.Role)
+	c.session.Guild(command.Guild).Member(userID).AddRole(command.Role)
 }
 
-func (c *RoleMessageCommand) RemoveRole(s disgord.Session, data *disgord.MessageReactionRemove) {
-	userID := data.UserID
-	command, err := c.repo.GetRoleCommand(data.MessageID)
+type removeRoleReact struct {
+	repo    repositories.RoleReactRepository
+	session disgord.Session
+	data    *disgord.MessageReactionRemove
+}
+
+func NewRemoveRoleReact(r repositories.RoleReactRepository, s disgord.Session, d *disgord.MessageReactionRemove) *removeRoleReact {
+	return &removeRoleReact{
+		repo:    r,
+		session: s,
+		data:    d,
+	}
+}
+
+func (c *removeRoleReact) OnReactionRemove() {
+	userID := c.data.UserID
+	command, err := c.repo.GetRoleCommand(c.data.MessageID)
 	if err != nil {
 		log.Error(err)
 	}
-	s.Guild(command.Guild).Member(userID).RemoveRole(command.Role)
+	c.session.Guild(command.Guild).Member(userID).RemoveRole(command.Role)
 }
