@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"discordbot/botcommands/discord"
 	"discordbot/botcommands/help"
 	"discordbot/botcommands/rolemessage"
 	"discordbot/botcommands/strawpolldeadline"
@@ -10,7 +9,6 @@ import (
 	"discordbot/repositories/model"
 	"discordbot/strawpoll"
 	"discordbot/twitter"
-	"encoding/json"
 	"errors"
 	"strings"
 
@@ -106,7 +104,7 @@ func (m *middlewareHolder) onMessageDelete(e *disgord.MessageDelete) interface{}
 }
 
 func (m *middlewareHolder) createOnMessageDeleteAction(e *disgord.MessageDelete) onMessageDelete {
-	return &rolemessage.RemoveRoleMessage{Repo: m.roleCommandRepo, Data: e}
+	return rolemessage.NewRemoveRoleMessage(m.roleCommandRepo, e)
 }
 
 func (m *middlewareHolder) createMessageContentForNonCommand(evt interface{}) interface{} {
@@ -126,12 +124,7 @@ func (m *middlewareHolder) createMessageContentForNonCommand(evt interface{}) in
 		user, _ = m.usersRepo.GetUserByDiscordId(e.Message.Author.ID)
 	}
 
-	m.jobQueue.onMessageCreate.PushBack(rolemessage.InProgressRoleCommand{
-		S:      m.session,
-		Repo:   m.roleCommandRepo,
-		Data:   e,
-		UserID: &user,
-	})
+	m.jobQueue.onMessageCreate.PushBack(rolemessage.NewInProgressRoleCommand(m.session, m.roleCommandRepo, e, &user))
 	return evt
 }
 
@@ -147,11 +140,7 @@ func (m *middlewareHolder) reactionAdd(e *disgord.MessageReactionAdd) interface{
 }
 
 func (m *middlewareHolder) createReactionAddAction(e *disgord.MessageReactionAdd) onReactionAdd {
-	return &rolemessage.AddRoleReact{
-		Repo:    m.roleCommandRepo,
-		Session: m.session,
-		Data:    e,
-	}
+	return rolemessage.NewAddRoleReact(m.roleCommandRepo, m.session, e)
 }
 
 func (m *middlewareHolder) reactionRemove(e *disgord.MessageReactionRemove) interface{} {
@@ -166,43 +155,7 @@ func (m *middlewareHolder) reactionRemove(e *disgord.MessageReactionRemove) inte
 }
 
 func (m *middlewareHolder) createReactionRemoveAction(e *disgord.MessageReactionRemove) onReactionRemove {
-	return &rolemessage.RemoveRoleReact{
-		Repo:    m.roleCommandRepo,
-		Session: m.session,
-		Data:    e,
-	}
-}
-
-func (m *middlewareHolder) checkAndSaveUser(evt interface{}) interface{} {
-	e, ok := evt.(*disgord.MessageCreate)
-	if !ok {
-		return nil
-	}
-
-	user := model.Users{DiscordUsersID: e.Message.Author.ID, UserName: e.Message.Author.Username}
-	if !m.usersRepo.DoesUserExist(e.Message.Author.ID) {
-		err := m.usersRepo.SaveUser(&user)
-		if err != nil {
-			log.Println(err)
-			return nil
-		}
-	} else {
-		user, _ = m.usersRepo.GetUserByDiscordId(e.Message.Author.ID)
-	}
-
-	split := strings.Split(e.Message.Content, " ")
-	var messageContent string
-	if len(split) > 1 {
-		messageContent = e.Message.Content[len(split[0])+1:]
-	}
-	middleWareContent := discord.MiddleWareContent{Command: split[0], MessageContent: messageContent, UsersID: user.UsersID}
-	jsonContent, err := json.Marshal(middleWareContent)
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
-	e.Message.Content = string(jsonContent)
-	return evt
+	return rolemessage.NewRemoveRoleReact(m.roleCommandRepo, m.session, e)
 }
 
 func (m *middlewareHolder) isFromAdmin(evt interface{}) interface{} {
