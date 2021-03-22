@@ -9,6 +9,7 @@ import (
 	"discordbot/botcommands"
 	"discordbot/botcommands/strawpolldeadline"
 	"discordbot/botcommands/twittercommands"
+	"discordbot/challonge"
 	"discordbot/repositories"
 	"discordbot/repositories/rolecommand"
 	strawpollrepo "discordbot/repositories/strawpolldeadline"
@@ -39,6 +40,7 @@ type botConfig struct {
 	DiscordConfig   discordConfig
 	TwitterConfig   myTwitter.TwitterClientConfig
 	StrawPollConfig strawpoll.StrawPollConfig
+	ChallongeConfig challonge.Config
 }
 
 type discordBot struct {
@@ -72,6 +74,10 @@ func main() {
 		},
 		StrawPollConfig: strawpoll.StrawPollConfig{
 			ApiKey: os.Getenv("STRAWPOLL_TOKEN"),
+		},
+		ChallongeConfig: challonge.Config{
+			Username: os.Getenv("CHALLONGE_USERNAME"),
+			Apikey:   os.Getenv("CHALLONGE_API_KEY"),
 		},
 	}
 	client := disgord.New(disgord.Config{
@@ -125,7 +131,7 @@ func newRepositoryContainer() *repositoryContainer {
 }
 
 func run(client *disgord.Client, bot *discordBot, customMiddleWare *middlewareHolder) {
-	
+
 	content, _ := std.NewMsgFilter(context.Background(), client)
 	content.SetPrefix(botcommands.CommandPrefix)
 
