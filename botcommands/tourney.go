@@ -18,8 +18,14 @@ $win {optional - participant}  {optional - score format "1-1"} - also sends resu
 $finish_tourney
 */
 
+const TournamentCommandString = "tournament"
+const TournamentAddOrganizerString = "add-organizer"
+const TournamentNextLosersMatchString = "next-losers-match"
+const TournamentMatchWinString = "match-win"
+const TournamentFinishString = "end-tournament"
+
 type tourneyCommandRequestFactory struct {
-	repo            tourneyRepository
+	repo            TournamentRepository
 	session         DiscordSession
 	challongeClient challongeClient
 }
@@ -31,7 +37,7 @@ type challongeClient interface {
 	UpdateMatch(tourneyID string, matchID int, params challonge.MatchQueryParams)
 }
 
-func NewTourneyCommandRequestFactory(s DiscordSession, repo tourneyRepository, client challongeClient) *tourneyCommandRequestFactory {
+func NewTourneyCommandRequestFactory(s DiscordSession, repo TournamentRepository, client challongeClient) *tourneyCommandRequestFactory {
 	return &tourneyCommandRequestFactory{
 		session:         s,
 		repo:            repo,

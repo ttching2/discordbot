@@ -2,7 +2,7 @@ package botcommands
 
 import "discordbot/repositories/model"
 
-type tourneyRepository interface {
+type TournamentRepository interface {
 	SaveTourney(*model.Tournament) error
 	GetTourneyByServer(model.Snowflake) (model.Tournament, error)
 	AddTourneyOrganizer(userID int64, tourneyID int64) error

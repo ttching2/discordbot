@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"discordbot/botcommands"
 	"discordbot/botcommands/help"
 	"discordbot/botcommands/rolemessage"
 	"discordbot/botcommands/strawpolldeadline"
 	"discordbot/botcommands/twittercommands"
+	"discordbot/challonge"
 	"discordbot/repositories/model"
 	"discordbot/strawpoll"
 	"discordbot/twitter"
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/andersfylling/disgord"
@@ -27,13 +30,63 @@ type messageCreateRequestFactory interface {
 	CreateRequest(*disgord.MessageCreate, *model.Users) interface{}
 }
 
-func newMiddlewareHolder(client disgord.Session, jobQueue *jobQueue, repos *repositoryContainer, twitterClient *twitter.TwitterClient, strawpollClient *strawpoll.Client) (m *middlewareHolder, err error) {
+type session struct {
+	disgordSession disgord.Session
+}
+
+func (s *session) SendMessage(channel model.Snowflake, params *disgord.CreateMessageParams) {
+	s.disgordSession.WithContext(context.Background()).SendMsg(channel, params.Content)
+}
+
+func (s *session) ReactToMessage(msg model.Snowflake, channel model.Snowflake, emoji interface{}) {
+	s.disgordSession.Channel(channel).Message(msg).Reaction(emoji).WithContext(context.Background()).Create()
+}
+
+type challongeClient struct {
+	client *challonge.Client
+}
+
+func (c *challongeClient) GetParticipants(tourneyID string) []challonge.Participant {
+	pc := c.client.Participant.Index(tourneyID)
+	var r []challonge.Participant
+	for _, p := range pc {
+		r = append(r, p.Participant)
+	}
+	return r
+}
+func (c *challongeClient) GetMatches(tourneyID string) []challonge.Match {
+	mc := c.client.Match.Index(tourneyID)
+	var r []challonge.Match
+	for _, m := range mc {
+		r = append(r, m.Match)
+	}
+	return r
+}
+func (c *challongeClient) GetMatch(tourneyID string, matchID int) challonge.Match {
+	mc := c.client.Match.Show(tourneyID, strconv.Itoa(matchID))
+	return mc.Match
+}
+func (c *challongeClient) UpdateMatch(tourneyID string, matchID int, params challonge.MatchQueryParams) {
+	c.client.Match.Update(tourneyID, strconv.Itoa(matchID), params)
+}
+
+func newMiddlewareHolder(client disgord.Session,
+	jobQueue *jobQueue,
+	repos *repositoryContainer,
+	twitterClient *twitter.TwitterClient,
+	strawpollClient *strawpoll.Client,
+	challongeeClient *challonge.Client) (m *middlewareHolder, err error) {
+
+	session := &session{client}
+	cclient := &challongeClient{challongeeClient}
+
 	commands := make(map[string]messageCreateRequestFactory)
 	commands[rolemessage.RoleReactString] = rolemessage.NewRoleCommandRequestFactory(client, repos.roleCommandRepo)
 	commands[twittercommands.TwitterFollowString] = twittercommands.NewTwitterFollowCommandFactory(client, twitterClient, repos.twitterFollowRepo)
 	commands[twittercommands.TwitterFollowListString] = twittercommands.NewTwitterFollowListCommandFactory(client, repos.twitterFollowRepo)
 	commands[twittercommands.TwitterUnfollowString] = twittercommands.NewTwitterUnfollowCommandFactory(client, twitterClient, repos.twitterFollowRepo)
 	commands[strawpolldeadline.StrawPollDeadlineString] = strawpolldeadline.NewCommandFactory(client, strawpollClient, repos.strawpollRepo)
+	commands[botcommands.TournamentCommandString] = botcommands.NewTourneyCommandRequestFactory(session, repos.tournamentRepo, cclient)
 
 	var commandList []help.PrintHelp
 	for _, c := range commands {

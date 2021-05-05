@@ -13,6 +13,7 @@ import (
 	"discordbot/repositories"
 	"discordbot/repositories/rolecommand"
 	strawpollrepo "discordbot/repositories/strawpolldeadline"
+	"discordbot/repositories/tourneyrepo"
 	"discordbot/repositories/twitterfollow"
 	"discordbot/repositories/users_repository"
 	"discordbot/strawpoll"
@@ -59,6 +60,7 @@ type repositoryContainer struct {
 	twitterFollowRepo repositories.TwitterFollowRepository
 	strawpollRepo     repositories.StrawpollDeadlineRepository
 	usersRepo         repositories.UsersRepository
+	tournamentRepo    botcommands.TournamentRepository
 }
 
 func main() {
@@ -106,11 +108,12 @@ func initializeBot(s disgord.Session, config botConfig) (*discordBot, *middlewar
 	jobQueue := newJobQueue()
 	twitterClient := myTwitter.NewClient(config.TwitterConfig)
 	strawpollClient := strawpoll.New(config.StrawPollConfig)
+	challongeClient := challonge.New(config.ChallongeConfig)
 
 	twittercommands.RestartTwitterFollows(s, repos.twitterFollowRepo, twitterClient)
 
 	strawpolldeadline.RestartStrawpollDeadlines(s, repos.strawpollRepo, strawpollClient)
-	customMiddleWare, err := newMiddlewareHolder(s, jobQueue, repos, twitterClient, strawpollClient)
+	customMiddleWare, err := newMiddlewareHolder(s, jobQueue, repos, twitterClient, strawpollClient, challongeClient)
 	discordBot := &discordBot{jobQueue: jobQueue}
 
 	if err != nil {
@@ -127,6 +130,7 @@ func newRepositoryContainer() *repositoryContainer {
 		twitterFollowRepo: twitterfollow.New(sqlDb),
 		strawpollRepo:     strawpollrepo.New(sqlDb),
 		usersRepo:         users_repository.New(sqlDb),
+		tournamentRepo:    tourneyrepo.NewRepository(sqlDb),
 	}
 }
 
