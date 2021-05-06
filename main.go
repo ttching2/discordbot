@@ -9,9 +9,11 @@ import (
 	"discordbot/botcommands"
 	"discordbot/botcommands/strawpolldeadline"
 	"discordbot/botcommands/twittercommands"
+	"discordbot/challonge"
 	"discordbot/repositories"
 	"discordbot/repositories/rolecommand"
 	strawpollrepo "discordbot/repositories/strawpolldeadline"
+	"discordbot/repositories/tourneyrepo"
 	"discordbot/repositories/twitterfollow"
 	"discordbot/repositories/users_repository"
 	"discordbot/strawpoll"
@@ -39,6 +41,7 @@ type botConfig struct {
 	DiscordConfig   discordConfig
 	TwitterConfig   myTwitter.TwitterClientConfig
 	StrawPollConfig strawpoll.StrawPollConfig
+	ChallongeConfig challonge.Config
 }
 
 type discordBot struct {
@@ -57,6 +60,7 @@ type repositoryContainer struct {
 	twitterFollowRepo repositories.TwitterFollowRepository
 	strawpollRepo     repositories.StrawpollDeadlineRepository
 	usersRepo         repositories.UsersRepository
+	tournamentRepo    botcommands.TournamentRepository
 }
 
 func main() {
@@ -72,6 +76,10 @@ func main() {
 		},
 		StrawPollConfig: strawpoll.StrawPollConfig{
 			ApiKey: os.Getenv("STRAWPOLL_TOKEN"),
+		},
+		ChallongeConfig: challonge.Config{
+			Username: os.Getenv("CHALLONGE_USERNAME"),
+			Apikey:   os.Getenv("CHALLONGE_API_KEY"),
 		},
 	}
 	client := disgord.New(disgord.Config{
@@ -100,11 +108,12 @@ func initializeBot(s disgord.Session, config botConfig) (*discordBot, *middlewar
 	jobQueue := newJobQueue()
 	twitterClient := myTwitter.NewClient(config.TwitterConfig)
 	strawpollClient := strawpoll.New(config.StrawPollConfig)
+	challongeClient := challonge.New(config.ChallongeConfig)
 
 	twittercommands.RestartTwitterFollows(s, repos.twitterFollowRepo, twitterClient)
 
 	strawpolldeadline.RestartStrawpollDeadlines(s, repos.strawpollRepo, strawpollClient)
-	customMiddleWare, err := newMiddlewareHolder(s, jobQueue, repos, twitterClient, strawpollClient)
+	customMiddleWare, err := newMiddlewareHolder(s, jobQueue, repos, twitterClient, strawpollClient, challongeClient)
 	discordBot := &discordBot{jobQueue: jobQueue}
 
 	if err != nil {
@@ -121,11 +130,12 @@ func newRepositoryContainer() *repositoryContainer {
 		twitterFollowRepo: twitterfollow.New(sqlDb),
 		strawpollRepo:     strawpollrepo.New(sqlDb),
 		usersRepo:         users_repository.New(sqlDb),
+		tournamentRepo:    tourneyrepo.NewRepository(sqlDb),
 	}
 }
 
 func run(client *disgord.Client, bot *discordBot, customMiddleWare *middlewareHolder) {
-	
+
 	content, _ := std.NewMsgFilter(context.Background(), client)
 	content.SetPrefix(botcommands.CommandPrefix)
 

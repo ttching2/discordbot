@@ -23,24 +23,16 @@ func (c *twitterUnfollowCommandFactory) PrintHelp() string {
 	return botcommands.CommandPrefix + TwitterUnfollowString + " {screen_name} - unfollows Twitter user given the twitter users username."
 }
 
-func NewTwitterUnfollowCommandFactory(session disgord.Session, twitterClient *botTwitter.TwitterClient, repo repositories.TwitterFollowRepository) *twitterUnfollowCommandFactory {
-	return &twitterUnfollowCommandFactory{
-		twitterClient: twitterClient,
-		repo:          repo,
-		session:       session,
-	}
-}
-
-func (c *twitterUnfollowCommandFactory) CreateRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+func (c *twitterFollowCommandFactory) CreateUnfollowRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
 	return &twitterUnfollowCommand{
-		twitterUnfollowCommandFactory: c,
-		data:                          data,
-		user:                          user,
+		twitterFollowCommandFactory: c,
+		data:                        data,
+		user:                        user,
 	}
 }
 
 type twitterUnfollowCommand struct {
-	*twitterUnfollowCommandFactory
+	*twitterFollowCommandFactory
 	data *disgord.MessageCreate
 	user *model.Users
 }

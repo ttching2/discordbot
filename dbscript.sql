@@ -43,3 +43,34 @@ CREATE TABLE IF NOT EXISTS strawpoll_deadline(
     channel BIG INTEGER,
     role BIG INTEGER,
     FOREIGN KEY(author) REFERENCES users(users_id));
+
+CREATE TABLE IF NOT EXISTS tournament(
+    tournament_id INTEGER PRIMARY KEY,
+    author INTEGER,
+    challonge_id TEXT,
+    discord_server_id BIG INTEGER UNIQUE,
+    current_match INTEGER,
+    FOREIGN KEY(author) REFERENCES users(users_id)
+);
+
+CREATE TABLE IF NOT EXISTS tournament_participant(
+    tournament_participant_id INTEGER PRIMARY KEY,
+    name TEXT,
+    challonge_id INTEGER UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS tournament_organizer_xref(
+    tournament_id INTEGER,
+    users_id INTEGER,
+    FOREIGN KEY(tournament_id) REFERENCES tournament(tournament_id) ON DELETE CASCADE,
+    FOREIGN KEY(users_id) REFERENCES users(users_id),
+    PRIMARY KEY(tournament_id, users_id)
+);
+
+CREATE TABLE IF NOT EXISTS tournament_participant_xref(
+    tournament_id INTEGER,
+    tournament_participant_id INTEGER,
+    FOREIGN KEY(tournament_id) REFERENCES tournament(tournament_id) ON DELETE CASCADE,
+    FOREIGN KEY(tournament_participant_id) REFERENCES tournament_participant(tournament_participant_id)
+    PRIMARY KEY(tournament_id, tournament_participant_id)
+);

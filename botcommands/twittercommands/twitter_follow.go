@@ -31,7 +31,7 @@ func NewTwitterFollowCommandFactory(session disgord.Session, twitterClient *botT
 	}
 }
 
-func (c *twitterFollowCommandFactory) CreateRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+func (c *twitterFollowCommandFactory) CreateFollowCommand(data *disgord.MessageCreate, user *model.Users) interface{} {
 	return &twitterFollowCommand{
 		twitterFollowCommandFactory: c,
 		data:                        data,

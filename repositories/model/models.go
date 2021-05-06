@@ -60,3 +60,19 @@ type StrawpollDeadline struct {
 	Channel             Snowflake
 	Role                Snowflake
 }
+
+type Tournament struct {
+	TournamentID    int64
+	User            int64
+	ChallongeID     string
+	DiscordServerID Snowflake
+	Organizers      []Users
+	Participants    []TournamentParticipant
+	CurrentMatch    int
+}
+
+type TournamentParticipant struct {
+	TournamentParticipantID int64
+	Name                    string
+	ChallongeID             int
+}

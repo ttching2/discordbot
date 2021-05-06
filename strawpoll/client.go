@@ -7,10 +7,6 @@ import (
 	"net/http"
 )
 
-type StrawPollClient interface {
-	StrawPollGetClient
-}
-
 type Client struct {
 	httpClient http.Client
 	apiKey string
