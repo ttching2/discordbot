@@ -21,23 +21,16 @@ func (c *twitterFollowListCommandFactory) PrintHelp() string {
 	return botcommands.CommandPrefix + TwitterFollowListString + " - lists all currently followed users for this discord."
 }
 
-func NewTwitterFollowListCommandFactory(session disgord.Session, repo repositories.TwitterFollowRepository) *twitterFollowListCommandFactory {
-	return &twitterFollowListCommandFactory{
-		repo:    repo,
-		session: session,
-	}
-}
-
-func (c *twitterFollowListCommandFactory) CreateRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
-	return &twitterFollowListCommand {
-		twitterFollowListCommandFactory: c,
-		data: data,
-		user: user,
+func (c *twitterFollowCommandFactory) CreateFollowListRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+	return &twitterFollowListCommand{
+		twitterFollowCommandFactory: c,
+		data:                        data,
+		user:                        user,
 	}
 }
 
 type twitterFollowListCommand struct {
-	*twitterFollowListCommandFactory
+	*twitterFollowCommandFactory
 	data *disgord.MessageCreate
 	user *model.Users
 }

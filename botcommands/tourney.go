@@ -14,8 +14,9 @@ $tourney {link (optional?)} - done
 $add_organizer {discord_name} - done
 $next_losers_match - done
 $ammend_participant {tourney_name} {discord_name} - not rn
-$win {optional - participant}  {optional - score format "1-1"} - also sends results to person if specified
-$finish_tourney
+$win {optional - participant}  {optional - score format "1-1"} - also sends results to person if specified (done)
+$finish_tourney - done
+$organizer-list - list organizers
 */
 
 const TournamentCommandString = "tournament"
@@ -43,6 +44,10 @@ func NewTourneyCommandRequestFactory(s DiscordSession, repo TournamentRepository
 		repo:            repo,
 		challongeClient: client,
 	}
+}
+
+func (c *tourneyCommandRequestFactory) PrintHelp() string {
+	return ""
 }
 
 func (c *tourneyCommandRequestFactory) CreateRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
@@ -116,7 +121,13 @@ func (c *tourneyCommand) ExecuteMessageCreateCommand() {
 		ChallongeID:     tourneyID,
 		Participants:    tourneyParticipants,
 	}
-	c.repo.SaveTourney(&t)
+	err = c.repo.SaveTourney(&t)
+	if err != nil {
+		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("Something went wrong, tournament unable to start."))
+		log.Error(err)
+		return
+	}
+	c.session.ReactToMessage(c.data.Message.ID, c.data.Message.ChannelID, "👍")
 }
 
 type addOrganizerCommand struct {
@@ -133,7 +144,13 @@ func (c *addOrganizerCommand) ExecuteMessageCreateCommand() {
 		return
 	}
 
-	c.repo.AddTourneyOrganizer(c.user.UsersID, t.TournamentID)
+	err = c.repo.AddTourneyOrganizer(c.user.UsersID, t.TournamentID)
+	if err != nil {
+		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("Something went wrong, organizer unable to be added."))
+		log.Error(err)
+		return
+	}
+	c.session.ReactToMessage(c.data.Message.ID, c.data.Message.ChannelID, "👍" )
 }
 
 type nextLosersMatchCommand struct {
@@ -265,6 +282,9 @@ func (c *closeTourney) ExecuteMessageCreateCommand() {
 	err = c.repo.RemoveTourney(c.data.Message.GuildID)
 
 	if err != nil {
+		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("An error occurred ending tournament."))
 		log.Error(err)
+		return
 	}
+	c.session.ReactToMessage(c.data.Message.ID, c.data.Message.ChannelID, "👍")
 }

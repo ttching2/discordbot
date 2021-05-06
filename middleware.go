@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"discordbot/botcommands"
-	"discordbot/botcommands/help"
 	"discordbot/botcommands/rolemessage"
 	"discordbot/botcommands/strawpolldeadline"
 	"discordbot/botcommands/twittercommands"
@@ -20,7 +19,7 @@ import (
 
 type middlewareHolder struct {
 	session        disgord.Session
-	commandFactory map[string]messageCreateRequestFactory
+	commandFactory map[string]func(data *disgord.MessageCreate, user *model.Users)interface{}
 	myself         *disgord.User
 	*jobQueue
 	*repositoryContainer
@@ -80,19 +79,28 @@ func newMiddlewareHolder(client disgord.Session,
 	session := &session{client}
 	cclient := &challongeClient{challongeeClient}
 
-	commands := make(map[string]messageCreateRequestFactory)
-	commands[rolemessage.RoleReactString] = rolemessage.NewRoleCommandRequestFactory(client, repos.roleCommandRepo)
-	commands[twittercommands.TwitterFollowString] = twittercommands.NewTwitterFollowCommandFactory(client, twitterClient, repos.twitterFollowRepo)
-	commands[twittercommands.TwitterFollowListString] = twittercommands.NewTwitterFollowListCommandFactory(client, repos.twitterFollowRepo)
-	commands[twittercommands.TwitterUnfollowString] = twittercommands.NewTwitterUnfollowCommandFactory(client, twitterClient, repos.twitterFollowRepo)
-	commands[strawpolldeadline.StrawPollDeadlineString] = strawpolldeadline.NewCommandFactory(client, strawpollClient, repos.strawpollRepo)
-	commands[botcommands.TournamentCommandString] = botcommands.NewTourneyCommandRequestFactory(session, repos.tournamentRepo, cclient)
+	roleCommandFactory := rolemessage.NewRoleCommandRequestFactory(client, repos.roleCommandRepo)
+	twitterCommandFactory := twittercommands.NewTwitterFollowCommandFactory(client, twitterClient, repos.twitterFollowRepo)
+	strawpollFactory := strawpolldeadline.NewCommandFactory(client, strawpollClient, repos.strawpollRepo)
+	tourneyFactory := botcommands.NewTourneyCommandRequestFactory(session, repos.tournamentRepo, cclient)
 
-	var commandList []help.PrintHelp
-	for _, c := range commands {
-		commandList = append(commandList, c.(help.PrintHelp))
-	}
-	commands[help.HelpString] = help.NewCommandFactory(client, commandList[:])
+	commands := make(map[string]func(data *disgord.MessageCreate, user *model.Users)interface{})
+	commands[rolemessage.RoleReactString] = roleCommandFactory.CreateRequest
+	commands[twittercommands.TwitterFollowString] = twitterCommandFactory.CreateFollowCommand
+	commands[twittercommands.TwitterFollowListString] = twitterCommandFactory.CreateFollowListRequest
+	commands[twittercommands.TwitterUnfollowString] = twitterCommandFactory.CreateUnfollowRequest
+	commands[strawpolldeadline.StrawPollDeadlineString] = strawpollFactory.CreateRequest
+	commands[botcommands.TournamentCommandString] = tourneyFactory.CreateRequest
+	commands[botcommands.TournamentAddOrganizerString] = tourneyFactory.CreateAddOrganizerCommand
+	commands[botcommands.TournamentNextLosersMatchString] = tourneyFactory.CreateNextLosersCommnad
+	commands[botcommands.TournamentMatchWinString] = tourneyFactory.CreateWinnerCommand
+	commands[botcommands.TournamentFinishString] = tourneyFactory.CreateTourneyCloseCommand
+
+	// var commandList []help.PrintHelp
+	// for _, c := range commands {
+	// 	commandList = append(commandList, c.(help.PrintHelp))
+	// }
+	// commands[help.HelpString] = help.NewCommandFactory(client, commandList[:])
 
 	m = &middlewareHolder{
 		session:             client,
@@ -139,12 +147,12 @@ func (m *middlewareHolder) createOnMessageCommand(e *disgord.MessageCreate) inte
 		messageContent = e.Message.Content[len(split[0])+1:]
 	}
 
-	f, ok := m.commandFactory[split[0]]
+	createCommand, ok := m.commandFactory[split[0]]
 	if !ok {
 		return nil
 	}
 
-	c := f.CreateRequest(e, &user)
+	c := createCommand(e, &user)
 	m.jobQueue.onMessageCreate.PushBack(c)
 	e.Message.Content = messageContent
 	return e
