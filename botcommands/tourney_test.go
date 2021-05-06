@@ -16,17 +16,17 @@ type onMessageCreateCommand interface {
 }
 
 type mockTourneyDB struct {
-	tourneys   map[model.Snowflake]*model.Tournament
+	tourneys   map[model.Snowflake]model.Tournament
 	organizers map[int64]int64
 }
 
 func (r *mockTourneyDB) SaveTourney(t *model.Tournament) error {
-	r.tourneys[t.DiscordServerID] = t
+	r.tourneys[t.DiscordServerID] = *t
 	return nil
 }
 
 func (r *mockTourneyDB) GetTourneyByServer(ID model.Snowflake) (model.Tournament, error) {
-	return *r.tourneys[ID], nil
+	return r.tourneys[ID], nil
 }
 
 func (r *mockTourneyDB) AddTourneyOrganizer(userID int64, tourneyID int64) error {
@@ -138,7 +138,7 @@ func TestCreateTourneyFromChallongeLink(t *testing.T) {
 		GuildID: 123,
 	}}
 	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]*model.Tournament)}
+	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
 	s := mockSession{}
 	factory := botcommands.NewTourneyCommandRequestFactory(&s, repo, &challongeClient)
 	c := factory.CreateRequest(&msg, &user)
@@ -175,7 +175,7 @@ func TestRunCommandsWithoutTourneyStart(t *testing.T) {
 	}}
 	challongeClient := mockChallongeClient{}
 	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]*model.Tournament)}
+	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
 	s := mockSession{}
 	factory := botcommands.NewTourneyCommandRequestFactory(&s, repo, &challongeClient)
 
@@ -198,7 +198,7 @@ func TestAddTourneyOrganizer(t *testing.T) {
 	}}
 	challongeClient := mockChallongeClient{}
 	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]*model.Tournament)}
+	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
 	repo.SaveTourney(&model.Tournament{
 		TournamentID:    1,
 		User:            1,
@@ -234,7 +234,7 @@ func TestNextLosersMatch(t *testing.T) {
 	cclient.setTourneyID("test")
 
 	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]*model.Tournament)}
+	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
 	//And: A tourney saved with matching participants
 	repo.SaveTourney(&model.Tournament{
 		TournamentID:    1,
@@ -287,7 +287,7 @@ func TestNextLosersMatchMultipleLosers(t *testing.T) {
 	cclient.setTourneyID("test")
 
 	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]*model.Tournament)}
+	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
 	//And: A tourney saved with matching participants
 	repo.SaveTourney(&model.Tournament{
 		TournamentID:    1,
@@ -339,7 +339,7 @@ func TestNextLosersNoMatchReady(t *testing.T) {
 	cclient.setTourneyID("test")
 
 	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]*model.Tournament)}
+	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
 	//And: A tourney saved with matching participants
 	repo.SaveTourney(&model.Tournament{
 		TournamentID:    1,
@@ -386,7 +386,7 @@ func TestWinCommand(t *testing.T) {
 	cclient.setTourneyID("test")
 
 	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]*model.Tournament)}
+	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
 	//And: A tourney saved with matching participants
 	repo.SaveTourney(&model.Tournament{
 		TournamentID:    1,
@@ -441,7 +441,7 @@ func TestFinishTourney(t *testing.T) {
 	cclient.setTourneyID("test")
 
 	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]*model.Tournament)}
+	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
 	//And: A tourney saved with matching participants
 	repo.SaveTourney(&model.Tournament{
 		TournamentID:    1,
