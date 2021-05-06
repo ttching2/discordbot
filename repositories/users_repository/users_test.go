@@ -22,7 +22,7 @@ func initDB() *sql.DB {
 		log.Fatal(err)
 	}
 
-	query, _ := ioutil.ReadFile("..\\..\\dbscript.sql")
+	query, _ := ioutil.ReadFile("../../dbscript.sql")
 
 	if _, err := client.Exec(string(query)); err != nil {
 		log.Fatal(err)

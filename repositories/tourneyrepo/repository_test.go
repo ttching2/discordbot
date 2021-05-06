@@ -16,7 +16,7 @@ import (
 func initDB() *sql.DB {
 	client, _ := sql.Open("sqlite3", ":memory:?_foreign_keys=on")
 
-	query, _ := ioutil.ReadFile("..\\..\\dbscript.sql")
+	query, _ := ioutil.ReadFile("../../dbscript.sql")
 
 	if _, err := client.Exec(string(query)); err != nil {
 		log.Fatal(err)
