@@ -67,7 +67,7 @@ type PollInfo struct {
 	Captcha             int
 	CreatorCountry      string 	  `json:"creator_country"`
 	Description         string
-	EditedAt            time.Time `json:"edited_at"`
+	// EditedAt            time.Time `json:"edited_at"` causes a time parse error
 	OriginalDescription string    `json:"original_description"`
 	ShowResults         int       `json:"show_results"`
 }
