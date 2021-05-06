@@ -94,7 +94,11 @@ func (c *strawpollDeadlineCommand) ExecuteMessageCreateCommand() {
 	c.repo.SaveStrawpollDeadline(strawpollDeadline)
 	go func() {
 		<-timeToWait.C
-		poll, _ := c.strawpollClient.GetPoll(pollID)
+		poll, err := c.strawpollClient.GetPoll(pollID)
+		if err != nil {
+			log.WithField("pollid",pollID).Error("Error fetching strawpoll ", err)
+			return
+		}
 		pollAnswers := poll.Content.Poll.PollAnswers
 		topAnswer := pollAnswers[0]
 		for _, answer := range pollAnswers {
@@ -104,7 +108,7 @@ func (c *strawpollDeadlineCommand) ExecuteMessageCreateCommand() {
 		}
 		result := fmt.Sprintf("%s Strawpoll has closed. The top vote for %s is %s with %d votes.", role.Mention(), poll.Content.Title, topAnswer.Answer, topAnswer.Votes)
 		c.session.Channel(channel.ID).CreateMessage(&disgord.CreateMessageParams{Content: result})
-		err := c.repo.DeleteStrawpollDeadlineByID(strawpollDeadline.StrawpollDeadlineID)
+		err = c.repo.DeleteStrawpollDeadlineByID(strawpollDeadline.StrawpollDeadlineID)
 		if err != nil {
 			log.WithField("strawpoll", strawpollDeadline).Error(err)
 		}
