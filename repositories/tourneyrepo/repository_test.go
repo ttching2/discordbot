@@ -16,13 +16,15 @@ import (
 func initDB() *sql.DB {
 	client, _ := sql.Open("sqlite3", ":memory:?_foreign_keys=on")
 
-	query, _ := ioutil.ReadFile("..\\..\\dbscript.sql")
+	query, _ := ioutil.ReadFile("../../dbscript.sql")
 
 	if _, err := client.Exec(string(query)); err != nil {
 		log.Fatal(err)
 	}
 
-	client.Exec(`INSERT INTO users(users_id, discord_users_id, user_name) VALUES (1234, 5678, 'person');`)
+	if _, err := client.Exec(`INSERT INTO users(users_id, discord_users_id, user_name) VALUES (1234, 5678, 'person');`); err != nil {
+		log.Fatal(err)
+	}
 
 	return client
 }
