@@ -4,7 +4,7 @@ package twitterfollow_test
 
 import (
 	"database/sql"
-	"discordbot/repositories/model"
+	"discordbot/commands"
 	"discordbot/repositories/twitterfollow"
 	"io/ioutil"
 	"log"
@@ -39,7 +39,7 @@ func TestGetFollowedUser(t *testing.T) {
 
 	repo := twitterfollow.New(db)
 
-	twitterFollow := model.TwitterFollowCommand{
+	twitterFollow := commands.TwitterFollowCommand{
 		TwitterFollowCommandID: 1,
 		User: 1234,
 		ScreenName: "watson",
@@ -78,7 +78,7 @@ func TestSaveUserToFollow(t *testing.T) {
 
 	repo := twitterfollow.New(db)
 
-	twitterFollow := model.TwitterFollowCommand{
+	twitterFollow := commands.TwitterFollowCommand{
 		User: 1234,
 		ScreenName: "watson",
 		Channel: 1234,
@@ -92,7 +92,7 @@ func TestSaveUserToFollow(t *testing.T) {
 		return
 	}
 
-	result := model.TwitterFollowCommand{}
+	result := commands.TwitterFollowCommand{}
 	row := db.QueryRow(`SELECT * FROM twitter_follow_command WHERE twitter_follow_command_id = 1;`)
 	err = row.Scan(
 		&result.TwitterFollowCommandID,
@@ -118,7 +118,7 @@ func TestDeleteFollowedUser(t *testing.T) {
 
 	repo := twitterfollow.New(db)
 
-	twitterFollow := model.TwitterFollowCommand{
+	twitterFollow := commands.TwitterFollowCommand{
 		User: 1234,
 		ScreenName: "watson",
 		Channel: 1234,
@@ -154,7 +154,7 @@ func TestGetAllFollowedUsersInServer(t *testing.T) {
 
 	repo := twitterfollow.New(db)
 
-	twitterFollow1 := model.TwitterFollowCommand{
+	twitterFollow1 := commands.TwitterFollowCommand{
 		TwitterFollowCommandID: 1,
 		User: 1234,
 		ScreenName: "watson",
@@ -162,7 +162,7 @@ func TestGetAllFollowedUsersInServer(t *testing.T) {
 		Guild: 567,
 		ScreenNameID: "abs123",
 	}
-	twitterFollow2 := model.TwitterFollowCommand{
+	twitterFollow2 := commands.TwitterFollowCommand{
 		TwitterFollowCommandID: 2,
 		User: 1234,
 		ScreenName: "gura",
@@ -170,7 +170,7 @@ func TestGetAllFollowedUsersInServer(t *testing.T) {
 		Guild: 567,
 		ScreenNameID: "sdeg2312",
 	}
-	twitterFollow3 := model.TwitterFollowCommand{
+	twitterFollow3 := commands.TwitterFollowCommand{
 		TwitterFollowCommandID: 3,
 		User: 1234,
 		ScreenName: "me",
@@ -213,7 +213,7 @@ func TestGetAllUniqueFollowedUsers(t *testing.T) {
 
 	repo := twitterfollow.New(db)
 
-	twitterFollow1 := model.TwitterFollowCommand{
+	twitterFollow1 := commands.TwitterFollowCommand{
 		TwitterFollowCommandID: 1,
 		User: 1234,
 		ScreenName: "watson",
@@ -221,7 +221,7 @@ func TestGetAllUniqueFollowedUsers(t *testing.T) {
 		Guild: 567,
 		ScreenNameID: "abs123",
 	}
-	twitterFollow2 := model.TwitterFollowCommand{
+	twitterFollow2 := commands.TwitterFollowCommand{
 		TwitterFollowCommandID: 2,
 		User: 1234,
 		ScreenName: "gura",
@@ -229,7 +229,7 @@ func TestGetAllUniqueFollowedUsers(t *testing.T) {
 		Guild: 567,
 		ScreenNameID: "sdeg2312",
 	}
-	twitterFollow3 := model.TwitterFollowCommand{
+	twitterFollow3 := commands.TwitterFollowCommand{
 		TwitterFollowCommandID: 3,
 		User: 1234,
 		ScreenName: "gura",

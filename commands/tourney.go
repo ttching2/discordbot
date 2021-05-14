@@ -1,12 +1,10 @@
-package botcommands
+package commands
 
 import (
 	"discordbot/challonge"
-	"discordbot/repositories/model"
 	"net/url"
 
 	"github.com/andersfylling/disgord"
-	log "github.com/sirupsen/logrus"
 )
 
 /*
@@ -31,13 +29,6 @@ type tourneyCommandRequestFactory struct {
 	challongeClient challongeClient
 }
 
-type challongeClient interface {
-	GetParticipants(tourneyID string) []challonge.Participant
-	GetMatches(tourneyID string) []challonge.Match
-	GetMatch(tourneyID string, matchID int) challonge.Match
-	UpdateMatch(tourneyID string, matchID int, params challonge.MatchQueryParams)
-}
-
 func NewTourneyCommandRequestFactory(s DiscordSession, repo TournamentRepository, client challongeClient) *tourneyCommandRequestFactory {
 	return &tourneyCommandRequestFactory{
 		session:         s,
@@ -50,7 +41,7 @@ func (c *tourneyCommandRequestFactory) PrintHelp() string {
 	return ""
 }
 
-func (c *tourneyCommandRequestFactory) CreateRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+func (c *tourneyCommandRequestFactory) CreateRequest(data *disgord.MessageCreate, user *Users) interface{} {
 	return &tourneyCommand{
 		tourneyCommandRequestFactory: c,
 		data:                         data,
@@ -58,7 +49,7 @@ func (c *tourneyCommandRequestFactory) CreateRequest(data *disgord.MessageCreate
 	}
 }
 
-func (c *tourneyCommandRequestFactory) CreateAddOrganizerCommand(data *disgord.MessageCreate, user *model.Users) interface{} {
+func (c *tourneyCommandRequestFactory) CreateAddOrganizerCommand(data *disgord.MessageCreate, user *Users) interface{} {
 	return &addOrganizerCommand{
 		tourneyCommandRequestFactory: c,
 		data:                         data,
@@ -66,7 +57,7 @@ func (c *tourneyCommandRequestFactory) CreateAddOrganizerCommand(data *disgord.M
 	}
 }
 
-func (c *tourneyCommandRequestFactory) CreateNextLosersCommnad(data *disgord.MessageCreate, user *model.Users) interface{} {
+func (c *tourneyCommandRequestFactory) CreateNextLosersCommnad(data *disgord.MessageCreate, user *Users) interface{} {
 	return &nextLosersMatchCommand{
 		tourneyCommandRequestFactory: c,
 		data:                         data,
@@ -74,7 +65,7 @@ func (c *tourneyCommandRequestFactory) CreateNextLosersCommnad(data *disgord.Mes
 	}
 }
 
-func (c *tourneyCommandRequestFactory) CreateWinnerCommand(data *disgord.MessageCreate, user *model.Users) interface{} {
+func (c *tourneyCommandRequestFactory) CreateWinnerCommand(data *disgord.MessageCreate, user *Users) interface{} {
 	return &matchWinnerCommand{
 		tourneyCommandRequestFactory: c,
 		data:                         data,
@@ -82,7 +73,7 @@ func (c *tourneyCommandRequestFactory) CreateWinnerCommand(data *disgord.Message
 	}
 }
 
-func (c *tourneyCommandRequestFactory) CreateTourneyCloseCommand(data *disgord.MessageCreate, user *model.Users) interface{} {
+func (c *tourneyCommandRequestFactory) CreateTourneyCloseCommand(data *disgord.MessageCreate, user *Users) interface{} {
 	return &closeTourney{
 		tourneyCommandRequestFactory: c,
 		data:                         data,
@@ -93,29 +84,29 @@ func (c *tourneyCommandRequestFactory) CreateTourneyCloseCommand(data *disgord.M
 type tourneyCommand struct {
 	*tourneyCommandRequestFactory
 	data *disgord.MessageCreate
-	user *model.Users
+	user *Users
 }
 
 func (c *tourneyCommand) ExecuteMessageCreateCommand() {
 	con := c.data.Message.Content
 	u, err := url.Parse(con)
 	if err != nil {
-		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("Unable to parse url"))
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "Unable to parse url")
 		log.Error(err)
 		return
 	}
 
 	tourneyID := u.Path[1:]
 	ps := c.challongeClient.GetParticipants(tourneyID)
-	var tourneyParticipants []model.TournamentParticipant
+	var tourneyParticipants []TournamentParticipant
 	for _, p := range ps {
-		participant := model.TournamentParticipant{
+		participant := TournamentParticipant{
 			Name:        p.Name,
 			ChallongeID: p.ID,
 		}
 		tourneyParticipants = append(tourneyParticipants, participant)
 	}
-	t := model.Tournament{
+	t := Tournament{
 		DiscordServerID: c.data.Message.GuildID,
 		User:            c.user.UsersID,
 		ChallongeID:     tourneyID,
@@ -123,7 +114,7 @@ func (c *tourneyCommand) ExecuteMessageCreateCommand() {
 	}
 	err = c.repo.SaveTourney(&t)
 	if err != nil {
-		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("Something went wrong, tournament unable to start."))
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "Something went wrong, tournament unable to start.")
 		log.Error(err)
 		return
 	}
@@ -133,20 +124,21 @@ func (c *tourneyCommand) ExecuteMessageCreateCommand() {
 type addOrganizerCommand struct {
 	*tourneyCommandRequestFactory
 	data *disgord.MessageCreate
-	user *model.Users
+	user *Users
 }
 
 func (c *addOrganizerCommand) ExecuteMessageCreateCommand() {
 	t, err := c.repo.GetTourneyByServer(c.data.Message.GuildID)
 
 	if t.DiscordServerID == 0 || err != nil {
-		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("Command unable to be used. Tournament not started in this server."))
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "Command unable to be used. Tournament not started in this server.")
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "Command unable to be used. Tournament not started in this server.")
 		return
 	}
 
 	err = c.repo.AddTourneyOrganizer(c.user.UsersID, t.TournamentID)
 	if err != nil {
-		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("Something went wrong, organizer unable to be added."))
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "Something went wrong, organizer unable to be added.")
 		log.Error(err)
 		return
 	}
@@ -156,14 +148,14 @@ func (c *addOrganizerCommand) ExecuteMessageCreateCommand() {
 type nextLosersMatchCommand struct {
 	*tourneyCommandRequestFactory
 	data *disgord.MessageCreate
-	user *model.Users
+	user *Users
 }
 
 func (c *nextLosersMatchCommand) ExecuteMessageCreateCommand() {
 	t, err := c.repo.GetTourneyByServer(c.data.Message.GuildID)
 
 	if t.DiscordServerID == 0 || err != nil {
-		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("Command unable to be used. Tournament not started in this server."))
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "Command unable to be used. Tournament not started in this server.")
 		return
 	}
 
@@ -184,7 +176,7 @@ func (c *nextLosersMatchCommand) ExecuteMessageCreateCommand() {
 	}
 
 	if nextMatch.ID == 0 {
-		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("No losers match is ready to be played yet."))
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "No losers match is ready to be played yet.")
 		return
 	}
 
@@ -194,10 +186,10 @@ func (c *nextLosersMatchCommand) ExecuteMessageCreateCommand() {
 	p1 := findParticipant(&t.Participants, nextMatch.Player1ID)
 	p2 := findParticipant(&t.Participants, nextMatch.Player2ID)
 
-	c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage(p1.Name+" vs "+p2.Name))
+	c.session.SendSimpleMessage(c.data.Message.ChannelID, p1.Name+" vs "+p2.Name)
 }
 
-func findParticipant(ps *[]model.TournamentParticipant, id int) *model.TournamentParticipant {
+func findParticipant(ps *[]TournamentParticipant, id int) *TournamentParticipant {
 	for _, p := range *ps {
 		if p.ChallongeID == id {
 			return &p
@@ -206,7 +198,7 @@ func findParticipant(ps *[]model.TournamentParticipant, id int) *model.Tournamen
 	return nil
 }
 
-func findParticipantByName(ps *[]model.TournamentParticipant, name string) *model.TournamentParticipant {
+func findParticipantByName(ps *[]TournamentParticipant, name string) *TournamentParticipant {
 	for _, p := range *ps {
 		if p.Name == name {
 			return &p
@@ -218,26 +210,26 @@ func findParticipantByName(ps *[]model.TournamentParticipant, name string) *mode
 type matchWinnerCommand struct {
 	*tourneyCommandRequestFactory
 	data *disgord.MessageCreate
-	user *model.Users
+	user *Users
 }
 
 func (c *matchWinnerCommand) ExecuteMessageCreateCommand() {
 	t, err := c.repo.GetTourneyByServer(c.data.Message.GuildID)
 
 	if t.DiscordServerID == 0 || err != nil || t.CurrentMatch == 0 {
-		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("Command unable to be used. Tournament not started in this server."))
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "Command unable to be used. Tournament not started in this server.")
 		return
 	}
 
 	if c.data.Message.Content == "" {
-		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("Missing winner's name."))
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "Missing winner's name.")
 		return
 	}
 
 	w := findParticipantByName(&t.Participants, c.data.Message.Content)
 
 	if w == nil {
-		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("Winner's name not found."))
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "Winner's name not found.")
 		return
 	}
 
@@ -249,7 +241,7 @@ func (c *matchWinnerCommand) ExecuteMessageCreateCommand() {
 	} else if w.ChallongeID == m.Player2ID {
 		score = challonge.MatchScore{Player2Score: 1}
 	} else {
-		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("Winner not found?"))
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "Winner not found?")
 		log.Error("Winner ID does not match current participants in match.")
 		return
 	}
@@ -268,21 +260,21 @@ func (c *matchWinnerCommand) ExecuteMessageCreateCommand() {
 type closeTourney struct {
 	*tourneyCommandRequestFactory
 	data *disgord.MessageCreate
-	user *model.Users
+	user *Users
 }
 
 func (c *closeTourney) ExecuteMessageCreateCommand() {
 	t, err := c.repo.GetTourneyByServer(c.data.Message.GuildID)
 
 	if t.DiscordServerID == 0 || err != nil {
-		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("Command unable to be used. Tournament not started in this server."))
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "Command unable to be used. Tournament not started in this server.")
 		return
 	}
 
 	err = c.repo.RemoveTourney(c.data.Message.GuildID)
 
 	if err != nil {
-		c.session.SendMessage(c.data.Message.ChannelID, createSimpleDisgordMessage("An error occurred ending tournament."))
+		c.session.SendSimpleMessage(c.data.Message.ChannelID, "An error occurred ending tournament.")
 		log.Error(err)
 		return
 	}

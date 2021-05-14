@@ -2,7 +2,7 @@ package tourneyrepo
 
 import (
 	"database/sql"
-	"discordbot/repositories/model"
+	"discordbot/commands"
 )
 
 type repository struct {
@@ -15,14 +15,14 @@ func NewRepository(db *sql.DB) *repository {
 	}
 }
 
-func (r *repository) SaveTourney(t *model.Tournament) error {
+func (r *repository) SaveTourney(t *commands.Tournament) error {
 	if t.TournamentID == 0 {
 		return r.saveNewTourney(t)
 	}
 	return r.updateTourney(t)
 }
 
-func (r *repository) updateTourney(t *model.Tournament) error {
+func (r *repository) updateTourney(t *commands.Tournament) error {
 	const query = "UPDATE tournament SET (author, challonge_id, discord_server_id, current_match) = (?, ?, ?, ?);"
 
 	tx, err := r.db.Begin()
@@ -69,7 +69,7 @@ func (r *repository) updateTourney(t *model.Tournament) error {
 	return nil
 }
 
-func (r *repository) saveNewTourney(t *model.Tournament) error {
+func (r *repository) saveNewTourney(t *commands.Tournament) error {
 	const query = "INSERT INTO tournament (author, challonge_id, discord_server_id, current_match) VALUES (?, ?, ?, ?);"
 
 	tx, err := r.db.Begin()
@@ -120,7 +120,7 @@ func (r *repository) saveNewTourney(t *model.Tournament) error {
 	return nil
 }
 
-func (r *repository) saveOrganizers(tournamentID int64, os []model.Users) error {
+func (r *repository) saveOrganizers(tournamentID int64, os []commands.Users) error {
 	const deletequery = `DELETE FROM tournament_organizer_xref WHERE tournament_id = ?;`
 	
 	_, err := r.db.Exec(deletequery, tournamentID)
@@ -146,7 +146,7 @@ func (r *repository) saveOrganizers(tournamentID int64, os []model.Users) error 
 	return nil
 }
 
-func (r *repository) saveParticipants(tournamentID int64, ps []model.TournamentParticipant) error {
+func (r *repository) saveParticipants(tournamentID int64, ps []commands.TournamentParticipant) error {
 	const deletequery = `DELETE FROM tournament_participant_xref WHERE tournament_id = ?;`
 	
 	_, err := r.db.Exec(deletequery, tournamentID)
@@ -170,7 +170,7 @@ func (r *repository) saveParticipants(tournamentID int64, ps []model.TournamentP
 	return nil
 }
 
-func (r *repository) saveNewParticipant(p *model.TournamentParticipant, t int64) error {
+func (r *repository) saveNewParticipant(p *commands.TournamentParticipant, t int64) error {
 	const query = `INSERT INTO tournament_participant (name, challonge_id) VALUES (?, ?);`
 
 	tx, err := r.db.Begin()
@@ -207,16 +207,16 @@ func (r *repository) saveNewParticipant(p *model.TournamentParticipant, t int64)
 	return nil
 }
 
-func (r *repository) GetTourneyByServer(t model.Snowflake) (model.Tournament, error) {
+func (r *repository) GetTourneyByServer(t commands.Snowflake) (commands.Tournament, error) {
 	const query = `SELECT * FROM tournament
 	 WHERE discord_server_id = ?`
 
 	row := r.db.QueryRow(query, t)
 	if row.Err() != nil {
-		return model.Tournament{}, row.Err()
+		return commands.Tournament{}, row.Err()
 	}
 
-	result := model.Tournament{}
+	result := commands.Tournament{}
 
 	row.Scan(
 		&result.TournamentID,
@@ -229,13 +229,13 @@ func (r *repository) GetTourneyByServer(t model.Snowflake) (model.Tournament, er
 	to, err := r.getTournamentOrganizers(result.TournamentID)
 
 	if err != nil {
-		return model.Tournament{}, err
+		return commands.Tournament{}, err
 	}
 
 	tp, err := r.getTournamentParticipants(result.TournamentID)
 
 	if err != nil {
-		return model.Tournament{}, err
+		return commands.Tournament{}, err
 	}
 
 	result.Participants = tp
@@ -244,7 +244,7 @@ func (r *repository) GetTourneyByServer(t model.Snowflake) (model.Tournament, er
 	return result, nil
 }
 
-func (r *repository) getTournamentParticipants(tournamentID int64) ([]model.TournamentParticipant, error) {
+func (r *repository) getTournamentParticipants(tournamentID int64) ([]commands.TournamentParticipant, error) {
 	const query = `SELECT tp.tournament_participant_id, tp.name, tp.challonge_id 
 	FROM tournament_participant_xref as tpxref
 	JOIN tournament_participant as tp ON tp.tournament_participant_id = tpxref.tournament_participant_id
@@ -256,9 +256,9 @@ func (r *repository) getTournamentParticipants(tournamentID int64) ([]model.Tour
 		return nil, err
 	}
 
-	var result []model.TournamentParticipant
+	var result []commands.TournamentParticipant
 	for rows.Next() {
-		t := model.TournamentParticipant{}
+		t := commands.TournamentParticipant{}
 		err = rows.Scan(
 			&t.TournamentParticipantID,
 			&t.Name,
@@ -276,7 +276,7 @@ func (r *repository) getTournamentParticipants(tournamentID int64) ([]model.Tour
 	return result, nil
 }
 
-func (r *repository) getTournamentOrganizers(tournamentID int64) ([]model.Users, error) {
+func (r *repository) getTournamentOrganizers(tournamentID int64) ([]commands.Users, error) {
 	const query = `SELECT users.users_id, users.discord_users_id, users.user_name, users.is_admin
 	FROM tournament_organizer_xref as toxref
 	JOIN users ON users.users_id = toxref.users_id
@@ -288,9 +288,9 @@ func (r *repository) getTournamentOrganizers(tournamentID int64) ([]model.Users,
 		return nil, err
 	}
 
-	var result []model.Users
+	var result []commands.Users
 	for rows.Next() {
-		u := model.Users{}
+		u := commands.Users{}
 		err = rows.Scan(
 			&u.UsersID,
 			&u.DiscordUsersID,
@@ -310,7 +310,7 @@ func (r *repository) getTournamentOrganizers(tournamentID int64) ([]model.Users,
 }
 
 func (r *repository) AddTourneyOrganizer(userID int64, tourneyID int64) error {
-	return r.saveOrganizers(tourneyID, []model.Users{{UsersID: userID}})
+	return r.saveOrganizers(tourneyID, []commands.Users{{UsersID: userID}})
 }
 
 func (r *repository) IsUserTourneyOrganizer(userID int64, tourneyID int64) (bool, error) {
@@ -337,7 +337,7 @@ func (r *repository) HasMatchInProgress(discordServerID int64) (bool, error) {
 	return true, nil
 }
 
-func (r *repository) RemoveTourney(discordServerID model.Snowflake) error {
+func (r *repository) RemoveTourney(discordServerID commands.Snowflake) error {
 	const query = `DELETE FROM tournament WHERE discord_server_id = ?;`
 	_, err := r.db.Exec(query, discordServerID)
 	

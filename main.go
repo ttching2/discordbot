@@ -6,11 +6,8 @@ import (
 	"database/sql"
 	"os"
 
-	"discordbot/botcommands"
-	"discordbot/botcommands/strawpolldeadline"
-	"discordbot/botcommands/twittercommands"
 	"discordbot/challonge"
-	"discordbot/repositories"
+	"discordbot/commands"
 	"discordbot/repositories/rolecommand"
 	strawpollrepo "discordbot/repositories/strawpolldeadline"
 	"discordbot/repositories/tourneyrepo"
@@ -56,11 +53,11 @@ type jobQueue struct {
 }
 
 type repositoryContainer struct {
-	roleCommandRepo   repositories.RoleReactRepository
-	twitterFollowRepo repositories.TwitterFollowRepository
-	strawpollRepo     repositories.StrawpollDeadlineRepository
-	usersRepo         repositories.UsersRepository
-	tournamentRepo    botcommands.TournamentRepository
+	roleCommandRepo   commands.RoleReactRepository
+	twitterFollowRepo commands.TwitterFollowRepository
+	strawpollRepo     commands.StrawpollDeadlineRepository
+	usersRepo         commands.UsersRepository
+	tournamentRepo    commands.TournamentRepository
 }
 
 func main() {
@@ -96,7 +93,6 @@ func newSQLDB() *sql.DB {
 	client, err := sql.Open("sqlite3", "botdb?_foreign_keys=on")
 
 	if err != nil {
-
 		log.Fatal(err)
 	}
 
@@ -110,10 +106,11 @@ func initializeBot(s disgord.Session, config botConfig) (*discordBot, *middlewar
 	strawpollClient := strawpoll.New(config.StrawPollConfig)
 	challongeClient := challonge.New(config.ChallongeConfig)
 
-	twittercommands.RestartTwitterFollows(s, repos.twitterFollowRepo, twitterClient)
+	commands.RestartTwitterFollows(s, repos.twitterFollowRepo, twitterClient)
+	commands.RestartStrawpollDeadlines(s, repos.strawpollRepo, strawpollClient)
 
-	strawpolldeadline.RestartStrawpollDeadlines(s, repos.strawpollRepo, strawpollClient)
-	customMiddleWare, err := newMiddlewareHolder(s, jobQueue, repos, twitterClient, strawpollClient, challongeClient)
+	discordSession := commands.NewSimpleDiscordSession(s)
+	customMiddleWare, err := newMiddlewareHolder(discordSession, jobQueue, repos, twitterClient, strawpollClient, challongeClient)
 	discordBot := &discordBot{jobQueue: jobQueue}
 
 	if err != nil {
@@ -137,7 +134,7 @@ func newRepositoryContainer() *repositoryContainer {
 func run(client *disgord.Client, bot *discordBot, customMiddleWare *middlewareHolder) {
 
 	content, _ := std.NewMsgFilter(context.Background(), client)
-	content.SetPrefix(botcommands.CommandPrefix)
+	content.SetPrefix(commands.CommandPrefix)
 
 	// listen for messages
 	client.Gateway().

@@ -1,27 +1,21 @@
-package twittercommands
+package commands
 
 import (
-	"context"
-	"discordbot/botcommands"
-	"discordbot/repositories"
-	"discordbot/repositories/model"
-
 	"github.com/andersfylling/disgord"
-	log "github.com/sirupsen/logrus"
 )
 
 const TwitterFollowListString = "twitter-follow-list"
 
 type twitterFollowListCommandFactory struct {
-	repo    repositories.TwitterFollowRepository
+	repo    TwitterFollowRepository
 	session disgord.Session
 }
 
 func (c *twitterFollowListCommandFactory) PrintHelp() string {
-	return botcommands.CommandPrefix + TwitterFollowListString + " - lists all currently followed users for this discord."
+	return CommandPrefix + TwitterFollowListString + " - lists all currently followed users for this discord."
 }
 
-func (c *twitterFollowCommandFactory) CreateFollowListRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+func (c *twitterFollowCommandFactory) CreateFollowListRequest(data *disgord.MessageCreate, user *Users) interface{} {
 	return &twitterFollowListCommand{
 		twitterFollowCommandFactory: c,
 		data:                        data,
@@ -32,14 +26,14 @@ func (c *twitterFollowCommandFactory) CreateFollowListRequest(data *disgord.Mess
 type twitterFollowListCommand struct {
 	*twitterFollowCommandFactory
 	data *disgord.MessageCreate
-	user *model.Users
+	user *Users
 }
 
 func (c *twitterFollowListCommand) ExecuteMessageCreateCommand() {
 	followList := ""
 	followsInGuild, err := c.repo.GetAllFollowedUsersInServer(c.data.Message.GuildID)
 	if err != nil {
-		c.data.Message.React(context.Background(), c.session, "👎")
+		c.session.ReactToMessage(c.data.Message.ID, c.data.Message.ChannelID, "👎")
 		log.Error(err)
 		return
 	}
@@ -47,5 +41,5 @@ func (c *twitterFollowListCommand) ExecuteMessageCreateCommand() {
 		followList += follows.ScreenName + "\n"
 	}
 
-	c.data.Message.Reply(context.Background(), c.session, "Following:\n"+followList)
+	c.session.SendSimpleMessage(c.data.Message.ChannelID, "Following:\n"+followList)
 }

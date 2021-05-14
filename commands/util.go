@@ -1,7 +1,6 @@
-package util
+package commands
 
 import (
-	"discordbot/botcommands/discord"
 	"strings"
 
 	"github.com/andersfylling/disgord"
@@ -55,17 +54,17 @@ func findEmojiByID(id disgord.Snowflake, emojis []*disgord.Emoji) *disgord.Emoji
 	return nil
 }
 
-func FindChannelByName(channel string, g discord.Guild) *disgord.Channel{
+func FindChannelByName(channel string, g Guild) *disgord.Channel{
 	channels, _ := g.GetChannels()
 	return findChannelByName(channel, channels)
 }
 
-func FindTargetChannel(channel disgord.Snowflake, g discord.Guild) *disgord.Channel {
+func FindTargetChannel(channel disgord.Snowflake, g Guild) *disgord.Channel {
 	channels, _ := g.GetChannels()
 	return findChannelByID(channel, channels)
 }
 
-func FindTargetEmoji(emoji disgord.Snowflake, g discord.Guild) *disgord.Emoji {
+func FindTargetEmoji(emoji disgord.Snowflake, g Guild) *disgord.Emoji {
 	emojis, _ := g.GetEmojis()
 	return findEmojiByID(emoji, emojis)
 }

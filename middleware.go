@@ -1,13 +1,8 @@
 package main
 
 import (
-	"context"
-	"discordbot/botcommands"
-	"discordbot/botcommands/rolemessage"
-	"discordbot/botcommands/strawpolldeadline"
-	"discordbot/botcommands/twittercommands"
 	"discordbot/challonge"
-	"discordbot/repositories/model"
+	"discordbot/commands"
 	"discordbot/strawpoll"
 	"discordbot/twitter"
 	"errors"
@@ -18,34 +13,22 @@ import (
 )
 
 type middlewareHolder struct {
-	session        disgord.Session
-	commandFactory map[string]func(data *disgord.MessageCreate, user *model.Users)interface{}
+	session        commands.DiscordSession
+	commandFactory map[string]func(data *disgord.MessageCreate, user *commands.Users)interface{}
 	myself         *disgord.User
 	*jobQueue
 	*repositoryContainer
 }
 
 type messageCreateRequestFactory interface {
-	CreateRequest(*disgord.MessageCreate, *model.Users) interface{}
+	CreateRequest(*disgord.MessageCreate, *commands.Users) interface{}
 }
 
-type session struct {
-	disgordSession disgord.Session
-}
-
-func (s *session) SendMessage(channel model.Snowflake, params *disgord.CreateMessageParams) {
-	s.disgordSession.WithContext(context.Background()).SendMsg(channel, params.Content)
-}
-
-func (s *session) ReactToMessage(msg model.Snowflake, channel model.Snowflake, emoji interface{}) {
-	s.disgordSession.Channel(channel).Message(msg).Reaction(emoji).WithContext(context.Background()).Create()
-}
-
-type challongeClient struct {
+type middlewareChallongeClient struct {
 	client *challonge.Client
 }
 
-func (c *challongeClient) GetParticipants(tourneyID string) []challonge.Participant {
+func (c *middlewareChallongeClient) GetParticipants(tourneyID string) []challonge.Participant {
 	pc := c.client.Participant.Index(tourneyID)
 	var r []challonge.Participant
 	for _, p := range pc {
@@ -53,7 +36,7 @@ func (c *challongeClient) GetParticipants(tourneyID string) []challonge.Particip
 	}
 	return r
 }
-func (c *challongeClient) GetMatches(tourneyID string) []challonge.Match {
+func (c *middlewareChallongeClient) GetMatches(tourneyID string) []challonge.Match {
 	mc := c.client.Match.Index(tourneyID)
 	var r []challonge.Match
 	for _, m := range mc {
@@ -61,40 +44,40 @@ func (c *challongeClient) GetMatches(tourneyID string) []challonge.Match {
 	}
 	return r
 }
-func (c *challongeClient) GetMatch(tourneyID string, matchID int) challonge.Match {
+func (c *middlewareChallongeClient) GetMatch(tourneyID string, matchID int) challonge.Match {
 	mc := c.client.Match.Show(tourneyID, strconv.Itoa(matchID))
 	return mc.Match
 }
-func (c *challongeClient) UpdateMatch(tourneyID string, matchID int, params challonge.MatchQueryParams) {
+func (c *middlewareChallongeClient) UpdateMatch(tourneyID string, matchID int, params challonge.MatchQueryParams) {
 	c.client.Match.Update(tourneyID, strconv.Itoa(matchID), params)
 }
 
-func newMiddlewareHolder(client disgord.Session,
+func newMiddlewareHolder(discordSession commands.DiscordSession,
 	jobQueue *jobQueue,
 	repos *repositoryContainer,
 	twitterClient *twitter.TwitterClient,
 	strawpollClient *strawpoll.Client,
 	challongeeClient *challonge.Client) (m *middlewareHolder, err error) {
 
-	session := &session{client}
-	cclient := &challongeClient{challongeeClient}
+	cclient := &middlewareChallongeClient{challongeeClient}
 
-	roleCommandFactory := rolemessage.NewRoleCommandRequestFactory(client, repos.roleCommandRepo)
-	twitterCommandFactory := twittercommands.NewTwitterFollowCommandFactory(client, twitterClient, repos.twitterFollowRepo)
-	strawpollFactory := strawpolldeadline.NewCommandFactory(client, strawpollClient, repos.strawpollRepo)
-	tourneyFactory := botcommands.NewTourneyCommandRequestFactory(session, repos.tournamentRepo, cclient)
+	roleCommandFactory := commands.NewRoleCommandRequestFactory(discordSession, repos.roleCommandRepo)
+	twitterCommandFactory := commands.NewTwitterFollowCommandFactory(discordSession, twitterClient, repos.twitterFollowRepo)
+	strawpollFactory := commands.NewCommandFactory(discordSession, strawpollClient, repos.strawpollRepo)
+	tourneyFactory := commands.NewTourneyCommandRequestFactory(discordSession, repos.tournamentRepo, cclient)
 
-	commands := make(map[string]func(data *disgord.MessageCreate, user *model.Users)interface{})
-	commands[rolemessage.RoleReactString] = roleCommandFactory.CreateRequest
-	commands[twittercommands.TwitterFollowString] = twitterCommandFactory.CreateFollowCommand
-	commands[twittercommands.TwitterFollowListString] = twitterCommandFactory.CreateFollowListRequest
-	commands[twittercommands.TwitterUnfollowString] = twitterCommandFactory.CreateUnfollowRequest
-	commands[strawpolldeadline.StrawPollDeadlineString] = strawpollFactory.CreateRequest
-	commands[botcommands.TournamentCommandString] = tourneyFactory.CreateRequest
-	commands[botcommands.TournamentAddOrganizerString] = tourneyFactory.CreateAddOrganizerCommand
-	commands[botcommands.TournamentNextLosersMatchString] = tourneyFactory.CreateNextLosersCommnad
-	commands[botcommands.TournamentMatchWinString] = tourneyFactory.CreateWinnerCommand
-	commands[botcommands.TournamentFinishString] = tourneyFactory.CreateTourneyCloseCommand
+	commandMap := make(map[string]func(data *disgord.MessageCreate, user *commands.Users)interface{})
+	
+	commandMap[commands.RoleReactString] = roleCommandFactory.CreateRequest
+	commandMap[commands.TwitterFollowString] = twitterCommandFactory.CreateFollowCommand
+	commandMap[commands.TwitterFollowListString] = twitterCommandFactory.CreateFollowListRequest
+	commandMap[commands.TwitterUnfollowString] = twitterCommandFactory.CreateUnfollowRequest
+	commandMap[commands.StrawPollDeadlineString] = strawpollFactory.CreateRequest
+	commandMap[commands.TournamentCommandString] = tourneyFactory.CreateRequest
+	commandMap[commands.TournamentAddOrganizerString] = tourneyFactory.CreateAddOrganizerCommand
+	commandMap[commands.TournamentNextLosersMatchString] = tourneyFactory.CreateNextLosersCommnad
+	commandMap[commands.TournamentMatchWinString] = tourneyFactory.CreateWinnerCommand
+	commandMap[commands.TournamentFinishString] = tourneyFactory.CreateTourneyCloseCommand
 
 	// var commandList []help.PrintHelp
 	// for _, c := range commands {
@@ -103,12 +86,12 @@ func newMiddlewareHolder(client disgord.Session,
 	// commands[help.HelpString] = help.NewCommandFactory(client, commandList[:])
 
 	m = &middlewareHolder{
-		session:             client,
+		session:             discordSession,
 		jobQueue:            jobQueue,
-		commandFactory:      commands,
+		commandFactory:      commandMap,
 		repositoryContainer: repos}
 
-	if m.myself, err = client.CurrentUser().WithContext(context.Background()).Get(); err != nil {
+	if m.myself, err = discordSession.CurrentUser(); err != nil {
 		return nil, errors.New("unable to fetch info about the bot instance")
 	}
 	return m, nil
@@ -131,7 +114,7 @@ func (m *middlewareHolder) handleDiscordEvent(evt interface{}) interface{} {
 
 func (m *middlewareHolder) createOnMessageCommand(e *disgord.MessageCreate) interface{} {
 
-	user := model.Users{DiscordUsersID: e.Message.Author.ID, UserName: e.Message.Author.Username}
+	user := commands.Users{DiscordUsersID: e.Message.Author.ID, UserName: e.Message.Author.Username}
 	if !m.usersRepo.DoesUserExist(e.Message.Author.ID) {
 		err := m.usersRepo.SaveUser(&user)
 		if err != nil {
@@ -165,7 +148,7 @@ func (m *middlewareHolder) onMessageDelete(e *disgord.MessageDelete) interface{}
 }
 
 func (m *middlewareHolder) createOnMessageDeleteAction(e *disgord.MessageDelete) onMessageDelete {
-	return rolemessage.NewRemoveRoleMessage(m.roleCommandRepo, e)
+	return commands.NewRemoveRoleMessage(m.roleCommandRepo, e)
 }
 
 func (m *middlewareHolder) createMessageContentForNonCommand(evt interface{}) interface{} {
@@ -174,7 +157,7 @@ func (m *middlewareHolder) createMessageContentForNonCommand(evt interface{}) in
 		return nil
 	}
 
-	user := model.Users{DiscordUsersID: e.Message.Author.ID}
+	user := commands.Users{DiscordUsersID: e.Message.Author.ID}
 	if !m.usersRepo.DoesUserExist(e.Message.Author.ID) {
 		err := m.usersRepo.SaveUser(&user)
 		if err != nil {
@@ -185,7 +168,7 @@ func (m *middlewareHolder) createMessageContentForNonCommand(evt interface{}) in
 		user, _ = m.usersRepo.GetUserByDiscordId(e.Message.Author.ID)
 	}
 
-	m.jobQueue.onMessageCreate.PushBack(rolemessage.NewInProgressRoleCommand(m.session, m.roleCommandRepo, e, &user))
+	m.jobQueue.onMessageCreate.PushBack(commands.NewInProgressRoleCommand(m.session, m.roleCommandRepo, e, &user))
 	return evt
 }
 
@@ -201,7 +184,7 @@ func (m *middlewareHolder) reactionAdd(e *disgord.MessageReactionAdd) interface{
 }
 
 func (m *middlewareHolder) createReactionAddAction(e *disgord.MessageReactionAdd) onReactionAdd {
-	return rolemessage.NewAddRoleReact(m.roleCommandRepo, m.session, e)
+	return commands.NewAddRoleReact(m.roleCommandRepo, m.session, e)
 }
 
 func (m *middlewareHolder) reactionRemove(e *disgord.MessageReactionRemove) interface{} {
@@ -216,7 +199,7 @@ func (m *middlewareHolder) reactionRemove(e *disgord.MessageReactionRemove) inte
 }
 
 func (m *middlewareHolder) createReactionRemoveAction(e *disgord.MessageReactionRemove) onReactionRemove {
-	return rolemessage.NewRemoveRoleReact(m.roleCommandRepo, m.session, e)
+	return commands.NewRemoveRoleReact(m.roleCommandRepo, m.session, e)
 }
 
 func (m *middlewareHolder) isFromAdmin(evt interface{}) interface{} {

@@ -1,8 +1,7 @@
-package help
+package commands
 
 import (
 	"context"
-	"discordbot/repositories/model"
 
 	"github.com/andersfylling/disgord"
 )
@@ -18,14 +17,14 @@ type PrintHelp interface {
 	PrintHelp() string
 }
 
-func NewCommandFactory(session disgord.Session, commands []PrintHelp) *helpCommandFactory {
+func NewHelpCommandFactory(session disgord.Session, commands []PrintHelp) *helpCommandFactory {
 	return &helpCommandFactory{
 		commands: commands,
 		session:  session,
 	}
 }
 
-func (c *helpCommandFactory) CreateRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+func (c *helpCommandFactory) CreateRequest(data *disgord.MessageCreate, user *Users) interface{} {
 	return &helpCommand {
 		helpCommandFactory: c,
 		data: data,
@@ -36,7 +35,7 @@ func (c *helpCommandFactory) CreateRequest(data *disgord.MessageCreate, user *mo
 type helpCommand struct {
 	*helpCommandFactory
 	data *disgord.MessageCreate
-	user *model.Users
+	user *Users
 }
 
 func (c *helpCommand) PrintHelp() string {
