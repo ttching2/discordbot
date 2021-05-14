@@ -97,9 +97,13 @@ func (c *inProgressRoleCommand) ExecuteMessageCreateCommand() {
 		c.session.ReactToMessage(msg.ID, targetChannel.ID, reactEmoji)
 		err = c.saveRoleCommand(c.user.UsersID, commandInProgress, msg.ID)
 		if err != nil {
+			log.Error(err)
 			return
 		}
-		c.repo.RemoveCommandProgress(c.user.DiscordUsersID, msg.ChannelID)
+		err = c.repo.RemoveCommandProgress(commandInProgress.User, commandInProgress.OriginChannel)
+		if err != nil {
+			log.Error(err)
+		}
 	default:
 	}
 }
