@@ -1,9 +1,8 @@
-package botcommands_test
+package commands_test
 
 import (
-	"discordbot/botcommands"
 	"discordbot/challonge"
-	"discordbot/repositories/model"
+	"discordbot/commands"
 	"log"
 	"testing"
 
@@ -16,16 +15,16 @@ type onMessageCreateCommand interface {
 }
 
 type mockTourneyDB struct {
-	tourneys   map[model.Snowflake]model.Tournament
+	tourneys   map[commands.Snowflake]commands.Tournament
 	organizers map[int64]int64
 }
 
-func (r *mockTourneyDB) SaveTourney(t *model.Tournament) error {
+func (r *mockTourneyDB) SaveTourney(t *commands.Tournament) error {
 	r.tourneys[t.DiscordServerID] = *t
 	return nil
 }
 
-func (r *mockTourneyDB) GetTourneyByServer(ID model.Snowflake) (model.Tournament, error) {
+func (r *mockTourneyDB) GetTourneyByServer(ID commands.Snowflake) (commands.Tournament, error) {
 	return r.tourneys[ID], nil
 }
 
@@ -46,27 +45,31 @@ func (r *mockTourneyDB) HasMatchInProgress(ID int64) (bool, error) {
 	return false, nil
 }
 
-func (r *mockTourneyDB) RemoveTourney(discordServerID model.Snowflake) error {
+func (r *mockTourneyDB) RemoveTourney(discordServerID commands.Snowflake) error {
 	delete(r.tourneys, discordServerID)
 	return nil
 }
 
 type mockSession struct {
 	message          string
-	reactedMessageID model.Snowflake
+	reactedMessageID commands.Snowflake
 }
 
-func (s *mockSession) SendMessage(channel model.Snowflake, m *disgord.CreateMessageParams) {
-	s.message = m.Content
+func (s *mockSession) SendSimpleMessage(channel commands.Snowflake, m string) (*disgord.Message, error) {
+	s.message = m
+	return nil,nil
 }
 
-func (s *mockSession) ReactToMessage(msg model.Snowflake, channel model.Snowflake, emoji interface{}) {
+func (s *mockSession) ReactToMessage(msg commands.Snowflake, channel commands.Snowflake, emoji interface{}) {
 	s.reactedMessageID = msg
 }
 
-func (s *mockSession) getReactedMessage() model.Snowflake {
+func (s *mockSession) getReactedMessage() commands.Snowflake {
 	return s.reactedMessageID
 }
+
+func (s *mockSession) CurrentUser() (*disgord.User, error) { return nil, nil}
+func (s *mockSession) Guild(id commands.Snowflake) commands.Guild { return nil }
 
 type mockChallongeClient struct {
 	id           string
@@ -137,10 +140,10 @@ func TestCreateTourneyFromChallongeLink(t *testing.T) {
 		Content: tourneyLink,
 		GuildID: 123,
 	}}
-	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
+	user := commands.Users{UsersID: 1, DiscordUsersID: 1}
+	repo := &mockTourneyDB{tourneys: make(map[commands.Snowflake]commands.Tournament)}
 	s := mockSession{}
-	factory := botcommands.NewTourneyCommandRequestFactory(&s, repo, &challongeClient)
+	factory := commands.NewTourneyCommandRequestFactory(&s, repo, &challongeClient)
 	c := factory.CreateRequest(&msg, &user)
 	//When: The command is executed
 	c.(onMessageCreateCommand).ExecuteMessageCreateCommand()
@@ -174,10 +177,10 @@ func TestRunCommandsWithoutTourneyStart(t *testing.T) {
 		GuildID: 123,
 	}}
 	challongeClient := mockChallongeClient{}
-	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
+	user := commands.Users{UsersID: 1, DiscordUsersID: 1}
+	repo := &mockTourneyDB{tourneys: make(map[commands.Snowflake]commands.Tournament)}
 	s := mockSession{}
-	factory := botcommands.NewTourneyCommandRequestFactory(&s, repo, &challongeClient)
+	factory := commands.NewTourneyCommandRequestFactory(&s, repo, &challongeClient)
 
 	c := factory.CreateAddOrganizerCommand(&msg, &user)
 
@@ -197,15 +200,15 @@ func TestAddTourneyOrganizer(t *testing.T) {
 		GuildID: 123,
 	}}
 	challongeClient := mockChallongeClient{}
-	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
-	repo.SaveTourney(&model.Tournament{
+	user := commands.Users{UsersID: 1, DiscordUsersID: 1}
+	repo := &mockTourneyDB{tourneys: make(map[commands.Snowflake]commands.Tournament)}
+	repo.SaveTourney(&commands.Tournament{
 		TournamentID:    1,
 		User:            1,
 		DiscordServerID: 123,
 	})
 	s := mockSession{}
-	factory := botcommands.NewTourneyCommandRequestFactory(&s, repo, &challongeClient)
+	factory := commands.NewTourneyCommandRequestFactory(&s, repo, &challongeClient)
 
 	c := factory.CreateAddOrganizerCommand(&msg, &user)
 	//When: The command is executed
@@ -233,15 +236,15 @@ func TestNextLosersMatch(t *testing.T) {
 	cclient.addMatches(wm1, wm2, lm1)
 	cclient.setTourneyID("test")
 
-	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
+	user := commands.Users{UsersID: 1, DiscordUsersID: 1}
+	repo := &mockTourneyDB{tourneys: make(map[commands.Snowflake]commands.Tournament)}
 	//And: A tourney saved with matching participants
-	repo.SaveTourney(&model.Tournament{
+	repo.SaveTourney(&commands.Tournament{
 		TournamentID:    1,
 		ChallongeID:     "test",
 		User:            1,
 		DiscordServerID: 123,
-		Participants: []model.TournamentParticipant{
+		Participants: []commands.TournamentParticipant{
 			{Name: "user1", ChallongeID: 542},
 			{Name: "test user", ChallongeID: 987},
 			{Name: "winner", ChallongeID: 123},
@@ -251,7 +254,7 @@ func TestNextLosersMatch(t *testing.T) {
 		},
 	})
 	s := mockSession{}
-	factory := botcommands.NewTourneyCommandRequestFactory(&s, repo, &cclient)
+	factory := commands.NewTourneyCommandRequestFactory(&s, repo, &cclient)
 
 	c := factory.CreateNextLosersCommnad(&msg, &user)
 
@@ -286,15 +289,15 @@ func TestNextLosersMatchMultipleLosers(t *testing.T) {
 	cclient.addMatches(wm1, wm2, lm1)
 	cclient.setTourneyID("test")
 
-	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
+	user := commands.Users{UsersID: 1, DiscordUsersID: 1}
+	repo := &mockTourneyDB{tourneys: make(map[commands.Snowflake]commands.Tournament)}
 	//And: A tourney saved with matching participants
-	repo.SaveTourney(&model.Tournament{
+	repo.SaveTourney(&commands.Tournament{
 		TournamentID:    1,
 		ChallongeID:     "test",
 		User:            1,
 		DiscordServerID: 123,
-		Participants: []model.TournamentParticipant{
+		Participants: []commands.TournamentParticipant{
 			{Name: "user1", ChallongeID: 542},
 			{Name: "test user", ChallongeID: 987},
 			{Name: "winner", ChallongeID: 123},
@@ -304,7 +307,7 @@ func TestNextLosersMatchMultipleLosers(t *testing.T) {
 		},
 	})
 	s := mockSession{}
-	factory := botcommands.NewTourneyCommandRequestFactory(&s, repo, &cclient)
+	factory := commands.NewTourneyCommandRequestFactory(&s, repo, &cclient)
 
 	c := factory.CreateNextLosersCommnad(&msg, &user)
 
@@ -338,15 +341,15 @@ func TestNextLosersNoMatchReady(t *testing.T) {
 	cclient.addMatches(wm1, wm2, lm1)
 	cclient.setTourneyID("test")
 
-	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
+	user := commands.Users{UsersID: 1, DiscordUsersID: 1}
+	repo := &mockTourneyDB{tourneys: make(map[commands.Snowflake]commands.Tournament)}
 	//And: A tourney saved with matching participants
-	repo.SaveTourney(&model.Tournament{
+	repo.SaveTourney(&commands.Tournament{
 		TournamentID:    1,
 		ChallongeID:     "test",
 		User:            1,
 		DiscordServerID: 123,
-		Participants: []model.TournamentParticipant{
+		Participants: []commands.TournamentParticipant{
 			{Name: "user1", ChallongeID: 542},
 			{Name: "test user", ChallongeID: 987},
 			{Name: "winner", ChallongeID: 123},
@@ -356,7 +359,7 @@ func TestNextLosersNoMatchReady(t *testing.T) {
 		},
 	})
 	s := mockSession{}
-	factory := botcommands.NewTourneyCommandRequestFactory(&s, repo, &cclient)
+	factory := commands.NewTourneyCommandRequestFactory(&s, repo, &cclient)
 
 	c := factory.CreateNextLosersCommnad(&msg, &user)
 
@@ -385,15 +388,15 @@ func TestWinCommand(t *testing.T) {
 	cclient.addMatches(wm1, wm2, lm1)
 	cclient.setTourneyID("test")
 
-	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
+	user := commands.Users{UsersID: 1, DiscordUsersID: 1}
+	repo := &mockTourneyDB{tourneys: make(map[commands.Snowflake]commands.Tournament)}
 	//And: A tourney saved with matching participants
-	repo.SaveTourney(&model.Tournament{
+	repo.SaveTourney(&commands.Tournament{
 		TournamentID:    1,
 		ChallongeID:     "test",
 		User:            1,
 		DiscordServerID: 123,
-		Participants: []model.TournamentParticipant{
+		Participants: []commands.TournamentParticipant{
 			{Name: "user1", ChallongeID: 542},
 			{Name: "test user", ChallongeID: 987},
 			{Name: "winner", ChallongeID: 123},
@@ -404,7 +407,7 @@ func TestWinCommand(t *testing.T) {
 		CurrentMatch: 1,
 	})
 	s := mockSession{}
-	factory := botcommands.NewTourneyCommandRequestFactory(&s, repo, &cclient)
+	factory := commands.NewTourneyCommandRequestFactory(&s, repo, &cclient)
 
 	c := factory.CreateWinnerCommand(&msg, &user)
 
@@ -440,15 +443,15 @@ func TestFinishTourney(t *testing.T) {
 	cclient.addMatches(wm1, wm2, lm1)
 	cclient.setTourneyID("test")
 
-	user := model.Users{UsersID: 1, DiscordUsersID: 1}
-	repo := &mockTourneyDB{tourneys: make(map[model.Snowflake]model.Tournament)}
+	user := commands.Users{UsersID: 1, DiscordUsersID: 1}
+	repo := &mockTourneyDB{tourneys: make(map[commands.Snowflake]commands.Tournament)}
 	//And: A tourney saved with matching participants
-	repo.SaveTourney(&model.Tournament{
+	repo.SaveTourney(&commands.Tournament{
 		TournamentID:    1,
 		ChallongeID:     "test",
 		User:            1,
 		DiscordServerID: 123,
-		Participants: []model.TournamentParticipant{
+		Participants: []commands.TournamentParticipant{
 			{Name: "user1", ChallongeID: 542},
 			{Name: "test user", ChallongeID: 987},
 			{Name: "winner", ChallongeID: 123},
@@ -459,7 +462,7 @@ func TestFinishTourney(t *testing.T) {
 		CurrentMatch: 1,
 	})
 	s := mockSession{}
-	factory := botcommands.NewTourneyCommandRequestFactory(&s, repo, &cclient)
+	factory := commands.NewTourneyCommandRequestFactory(&s, repo, &cclient)
 
 	c := factory.CreateTourneyCloseCommand(&msg, &user)
 

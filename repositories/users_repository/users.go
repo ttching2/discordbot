@@ -2,7 +2,7 @@ package users_repository
 
 import (
 	"database/sql"
-	"discordbot/repositories/model"
+	"discordbot/commands"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -17,16 +17,16 @@ func New(db *sql.DB) *UsersRepository {
 	}
 }
 
-func (r *UsersRepository) GetUserByDiscordId(user model.Snowflake) (model.Users, error) {
+func (r *UsersRepository) GetUserByDiscordId(user commands.Snowflake) (commands.Users, error) {
 	const query = `SELECT * FROM users WHERE discord_users_id = ?;`
 
 	row := r.db.QueryRow(query, user)
 	if row.Err() != nil {
 		log.WithField("user", user).Error(row.Err())
-		return model.Users{}, row.Err()
+		return commands.Users{}, row.Err()
 	}
 
-	result := model.Users{}
+	result := commands.Users{}
 
 	row.Scan(
 		&result.UsersID,
@@ -37,7 +37,7 @@ func (r *UsersRepository) GetUserByDiscordId(user model.Snowflake) (model.Users,
 	return result, nil
 }
 
-func (r *UsersRepository) DoesUserExist(user model.Snowflake) bool {
+func (r *UsersRepository) DoesUserExist(user commands.Snowflake) bool {
 	const query = `SELECT * FROM users WHERE discord_users_id = ?;`
 
 	rows, err := r.db.Query(query, user)
@@ -51,7 +51,7 @@ func (r *UsersRepository) DoesUserExist(user model.Snowflake) bool {
 	return rows.Next()
 }
 
-func (r *UsersRepository) SaveUser(user *model.Users) error {
+func (r *UsersRepository) SaveUser(user *commands.Users) error {
 	const query = `INSERT INTO users(discord_users_id, is_admin, user_name) VALUES (?, ?, ?);`
 
 	tx, err := r.db.Begin()

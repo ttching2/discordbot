@@ -4,7 +4,7 @@ package tourneyrepo_test
 
 import (
 	"database/sql"
-	"discordbot/repositories/model"
+	"discordbot/commands"
 	"discordbot/repositories/tourneyrepo"
 	"io/ioutil"
 	"log"
@@ -33,12 +33,12 @@ func TestSaveNewTourney(t *testing.T) {
 	db := initDB()
 	repo := tourneyrepo.NewRepository(db)
 
-	tourney := &model.Tournament{
+	tourney := &commands.Tournament{
 		User:            1234,
 		DiscordServerID: 123,
 		ChallongeID:     "ABC",
-		Participants:    []model.TournamentParticipant{{Name: "test", ChallongeID: 1}, {Name: "person", ChallongeID: 2}},
-		Organizers:      []model.Users{{UsersID: 1234, DiscordUsersID: 5678, UserName: "person"}}}
+		Participants:    []commands.TournamentParticipant{{Name: "test", ChallongeID: 1}, {Name: "person", ChallongeID: 2}},
+		Organizers:      []commands.Users{{UsersID: 1234, DiscordUsersID: 5678, UserName: "person"}}}
 
 	err := repo.SaveTourney(tourney)
 
@@ -71,7 +71,7 @@ func TestUpdateTourney(t *testing.T) {
 	db := initDB()
 	repo := tourneyrepo.NewRepository(db)
 	db.Exec("INSERT INTO tournament_participant (name, challonge_id) VALUES ('person', 1), ('test', 2), ('hey', 3);")
-	tourney := &model.Tournament{User: 1234, DiscordServerID: 123, ChallongeID: "ABC", Participants: []model.TournamentParticipant{{TournamentParticipantID: 2, Name: "test", ChallongeID: 2}}}
+	tourney := &commands.Tournament{User: 1234, DiscordServerID: 123, ChallongeID: "ABC", Participants: []commands.TournamentParticipant{{TournamentParticipantID: 2, Name: "test", ChallongeID: 2}}}
 
 	err := repo.SaveTourney(tourney)
 
@@ -81,8 +81,8 @@ func TestUpdateTourney(t *testing.T) {
 	}
 
 	tourney.CurrentMatch = 567
-	tourney.Participants = []model.TournamentParticipant{{TournamentParticipantID: 1, Name: "person", ChallongeID: 1}, {Name: "test1", ChallongeID: 123}, {Name: "second", ChallongeID: 567}}
-	tourney.Organizers = []model.Users{{UsersID: 1234, DiscordUsersID: 5678, UserName: "person"}}
+	tourney.Participants = []commands.TournamentParticipant{{TournamentParticipantID: 1, Name: "person", ChallongeID: 1}, {Name: "test1", ChallongeID: 123}, {Name: "second", ChallongeID: 567}}
+	tourney.Organizers = []commands.Users{{UsersID: 1234, DiscordUsersID: 5678, UserName: "person"}}
 	err = repo.SaveTourney(tourney)
 
 	if err != nil {
@@ -145,7 +145,7 @@ func TestAddTourneyOrganizer(t *testing.T) {
 	db := initDB()
 	repo := tourneyrepo.NewRepository(db)
 
-	tourney := &model.Tournament{User: 1234, DiscordServerID: 123, ChallongeID: "ABC"}
+	tourney := &commands.Tournament{User: 1234, DiscordServerID: 123, ChallongeID: "ABC"}
 
 	err := repo.SaveTourney(tourney)
 
@@ -172,7 +172,7 @@ func TestIsUserTourneyOrganizer(t *testing.T) {
 	db := initDB()
 	repo := tourneyrepo.NewRepository(db)
 
-	tourney := &model.Tournament{User: 1234, DiscordServerID: 123, ChallongeID: "ABC", Organizers: []model.Users{{UsersID: 1234, DiscordUsersID: 5678, UserName: "person"}}}
+	tourney := &commands.Tournament{User: 1234, DiscordServerID: 123, ChallongeID: "ABC", Organizers: []commands.Users{{UsersID: 1234, DiscordUsersID: 5678, UserName: "person"}}}
 
 	err := repo.SaveTourney(tourney)
 
@@ -197,7 +197,7 @@ func TestRemoveTournament(t *testing.T) {
 	db := initDB()
 	repo := tourneyrepo.NewRepository(db)
 
-	tourney := &model.Tournament{User: 1234, DiscordServerID: 123, ChallongeID: "ABC", Organizers: []model.Users{{UsersID: 1234, DiscordUsersID: 5678, UserName: "person"}}}
+	tourney := &commands.Tournament{User: 1234, DiscordServerID: 123, ChallongeID: "ABC", Organizers: []commands.Users{{UsersID: 1234, DiscordUsersID: 5678, UserName: "person"}}}
 
 	err := repo.SaveTourney(tourney)
 

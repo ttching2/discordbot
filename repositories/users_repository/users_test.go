@@ -4,7 +4,7 @@ package users_repository_test
 
 import (
 	"database/sql"
-	"discordbot/repositories/model"
+	"discordbot/commands"
 	"discordbot/repositories/users_repository"
 	"io/ioutil"
 	"log"
@@ -37,7 +37,7 @@ func TestGetUserByDiscordId(t *testing.T) {
 
 	repo := users_repository.New(db)
 
-	user := model.Users{
+	user := commands.Users{
 		UsersID: 1,
 		DiscordUsersID: 1234,
 		UserName: "test",
@@ -59,7 +59,7 @@ func TestSaveUser(t *testing.T) {
 
 	repo := users_repository.New(db)
 
-	user := model.Users{
+	user := commands.Users{
 		UsersID: 1,
 		DiscordUsersID: 1234,
 		UserName: "test",
@@ -86,7 +86,7 @@ func TestIsUserUsingCommand(t *testing.T) {
 
 	repo := users_repository.New(db)
 
-	user := model.Users{
+	user := commands.Users{
 		UsersID: 1,
 		DiscordUsersID: 1234,
 		UserName: "test",

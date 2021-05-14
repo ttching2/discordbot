@@ -1,34 +1,28 @@
-package strawpolldeadline
+package commands
 
 import (
-	"context"
-	"discordbot/botcommands"
-	"discordbot/repositories"
-	"discordbot/repositories/model"
 	"discordbot/strawpoll"
-	"discordbot/util"
 	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/andersfylling/disgord"
-	log "github.com/sirupsen/logrus"
 )
 
 const StrawPollDeadlineString = "strawpoll-deadline"
 
 type strawpollDeadlineCommandFactory struct {
 	strawpollClient *strawpoll.Client
-	repo            repositories.StrawpollDeadlineRepository
-	session         disgord.Session
+	repo            StrawpollDeadlineRepository
+	session         DiscordSession
 }
 
 func (c *strawpollDeadlineCommandFactory) PrintHelp() string {
-	return botcommands.CommandPrefix + StrawPollDeadlineString + "{strawpoll_url} {channel_name} {role_name} - Ping role in given channel when deadline is met and announce results."
+	return CommandPrefix + StrawPollDeadlineString + "{strawpoll_url} {channel_name} {role_name} - Ping role in given channel when deadline is met and announce results."
 }
 
-func NewCommandFactory(session disgord.Session, strawpollClient *strawpoll.Client, repo repositories.StrawpollDeadlineRepository) *strawpollDeadlineCommandFactory {
+func NewCommandFactory(session DiscordSession, strawpollClient *strawpoll.Client, repo StrawpollDeadlineRepository) *strawpollDeadlineCommandFactory {
 	return &strawpollDeadlineCommandFactory{
 		strawpollClient: strawpollClient,
 		repo:            repo,
@@ -36,7 +30,7 @@ func NewCommandFactory(session disgord.Session, strawpollClient *strawpoll.Clien
 	}
 }
 
-func (c *strawpollDeadlineCommandFactory) CreateRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+func (c *strawpollDeadlineCommandFactory) CreateRequest(data *disgord.MessageCreate, user *Users) interface{} {
 	return &strawpollDeadlineCommand {
 		strawpollDeadlineCommandFactory: c,
 		data: data,
@@ -47,7 +41,7 @@ func (c *strawpollDeadlineCommandFactory) CreateRequest(data *disgord.MessageCre
 type strawpollDeadlineCommand struct {
 	*strawpollDeadlineCommandFactory
 	data *disgord.MessageCreate
-	user *model.Users
+	user *Users
 }
 
 func (c *strawpollDeadlineCommand) ExecuteMessageCreateCommand() {
@@ -55,13 +49,13 @@ func (c *strawpollDeadlineCommand) ExecuteMessageCreateCommand() {
 
 	split := strings.Split(msg.Content, " ")
 	if len(split) != 3 {
-		msg.Reply(context.Background(), c.session, "Incorrect number of arguments for command.")
+		c.session.SendSimpleMessage(msg.ChannelID, "Incorrect number of arguments for command.")
 		return
 	}
 
 	u, err := url.Parse(split[0])
 	if err != nil {
-		msg.Reply(context.Background(), c.session, "Error processing strawpoll url.")
+		c.session.SendSimpleMessage(msg.ChannelID, "Error processing strawpoll url.")
 		return
 	}
 
@@ -70,21 +64,21 @@ func (c *strawpollDeadlineCommand) ExecuteMessageCreateCommand() {
 
 	now := time.Now()
 	if now.After(poll.Content.Deadline) {
-		msg.Reply(context.Background(), c.session, "Could not set timer for poll. Deadline either missing or deadline has passed.")
+		c.session.SendSimpleMessage(msg.ChannelID, "Could not set timer for poll. Deadline either missing or deadline has passed.")
 		return
 	}
 
 	channelName := split[1]
 	guild := c.session.Guild(msg.GuildID)
-	channel := util.FindChannelByName(channelName, guild)
+	channel := FindChannelByName(channelName, guild)
 
 	roleName := split[2]
 	roles, _ := c.session.Guild(msg.GuildID).GetRoles()
-	role := util.FindRoleByName(roleName, roles)
+	role := FindRoleByName(roleName, roles)
 
 	deadlineDuration := poll.Content.Deadline.Sub(now)
 	timeToWait := time.NewTimer(deadlineDuration)
-	strawpollDeadline := &model.StrawpollDeadline{
+	strawpollDeadline := &StrawpollDeadline{
 		User:        c.user.UsersID,
 		Guild:       msg.GuildID,
 		Channel:     channel.ID,
@@ -107,17 +101,17 @@ func (c *strawpollDeadlineCommand) ExecuteMessageCreateCommand() {
 			}
 		}
 		result := fmt.Sprintf("%s Strawpoll has closed. The top vote for %s is %s with %d votes.", role.Mention(), poll.Content.Title, topAnswer.Answer, topAnswer.Votes)
-		c.session.Channel(channel.ID).CreateMessage(&disgord.CreateMessageParams{Content: result})
+		c.session.SendSimpleMessage(channel.ID, result)
 		err = c.repo.DeleteStrawpollDeadlineByID(strawpollDeadline.StrawpollDeadlineID)
 		if err != nil {
 			log.WithField("strawpoll", strawpollDeadline).Error(err)
 		}
 	}()
 
-	msg.React(context.Background(), c.session, "👍")
+	c.session.ReactToMessage(msg.ID, msg.ChannelID, "👍")
 }
 
-func RestartStrawpollDeadlines(client disgord.Session, dbClient repositories.StrawpollDeadlineRepository, strawpollClient *strawpoll.Client) {
+func RestartStrawpollDeadlines(client disgord.Session, dbClient StrawpollDeadlineRepository, strawpollClient *strawpoll.Client) {
 	strawpolls, err := dbClient.GetAllStrawpollDeadlines()
 	if err != nil {
 		log.Error(err)
@@ -138,7 +132,7 @@ func RestartStrawpollDeadlines(client disgord.Session, dbClient repositories.Str
 		}
 
 		timeToWait := time.NewTimer(poll.Content.Deadline.Sub(now))
-		go func(strawpoll model.StrawpollDeadline) {
+		go func(strawpoll StrawpollDeadline) {
 			<-timeToWait.C
 			poll, _ := strawpollClient.GetPoll(strawpoll.StrawpollID)
 			pollAnswers := poll.Content.Poll.PollAnswers

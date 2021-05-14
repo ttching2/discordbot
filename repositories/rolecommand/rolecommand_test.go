@@ -4,7 +4,7 @@ package rolecommand_test
 
 import (
 	"database/sql"
-	"discordbot/repositories/model"
+	"discordbot/commands"
 	"discordbot/repositories/rolecommand"
 	"io/ioutil"
 	"log"
@@ -36,7 +36,7 @@ func TestSaveCommandInProgress(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	commandInProgress := model.CommandInProgress{
+	commandInProgress := commands.CommandInProgress{
 		User:          13456,
 		Guild:         567,
 		OriginChannel: 1234,
@@ -51,7 +51,7 @@ func TestSaveCommandInProgress(t *testing.T) {
 		return
 	}
 
-	result := model.CommandInProgress{}
+	result := commands.CommandInProgress{}
 	row := db.QueryRow(`SELECT * FROM in_progress_role_command WHERE in_progress_role_command_pk = 1;`)
 	err = row.Scan(
 		&result.CommandInProgressID,
@@ -78,7 +78,7 @@ func TestSaveRoleCommand(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	roleCommand := model.RoleCommand{
+	roleCommand := commands.RoleCommand{
 		User:    1234,
 		Guild:   567,
 		Role:    1234364,
@@ -92,7 +92,7 @@ func TestSaveRoleCommand(t *testing.T) {
 		return
 	}
 
-	result := model.RoleCommand{}
+	result := commands.RoleCommand{}
 	row := db.QueryRow(`SELECT * FROM role_message_command WHERE role_message_command_pk = 1;`)
 	err = row.Scan(
 		&result.RoleCommandID,
@@ -117,7 +117,7 @@ func TestIsUserUsingCommand(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	commandInProgress := model.CommandInProgress{
+	commandInProgress := commands.CommandInProgress{
 		User:          13456,
 		Guild:         567,
 		OriginChannel: 1234,
@@ -142,7 +142,7 @@ func TestGetCommandInProgress(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	commandInProgress := model.CommandInProgress{
+	commandInProgress := commands.CommandInProgress{
 		User:          13456,
 		Guild:         567,
 		OriginChannel: 1234,
@@ -168,7 +168,7 @@ func TestRemoveCommandProgress(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	commandInProgress := model.CommandInProgress{
+	commandInProgress := commands.CommandInProgress{
 		User:          13456,
 		Guild:         567,
 		OriginChannel: 1234,
@@ -189,7 +189,7 @@ func TestIsRoleCommandMessage(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	roleCommand := model.RoleCommand{
+	roleCommand := commands.RoleCommand{
 		User:    1234,
 		Guild:   567,
 		Role:    1234364,
@@ -216,7 +216,7 @@ func TestGetRoleCommand(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	roleCommand := model.RoleCommand{
+	roleCommand := commands.RoleCommand{
 		User:    1234,
 		Guild:   567,
 		Role:    1234364,
@@ -243,7 +243,7 @@ func TestRemoveRoleReactCommand(t *testing.T) {
 
 	repo := rolecommand.New(db)
 
-	roleCommand := model.RoleCommand{
+	roleCommand := commands.RoleCommand{
 		User:    1234,
 		Guild:   567,
 		Role:    1234364,

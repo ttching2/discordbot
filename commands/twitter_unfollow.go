@@ -1,29 +1,24 @@
-package twittercommands
+package commands
 
 import (
-	"context"
-	"discordbot/botcommands"
-	"discordbot/repositories"
-	"discordbot/repositories/model"
 	botTwitter "discordbot/twitter"
 
 	"github.com/andersfylling/disgord"
-	log "github.com/sirupsen/logrus"
 )
 
 const TwitterUnfollowString = "twitter-unfollow"
 
 type twitterUnfollowCommandFactory struct {
 	twitterClient *botTwitter.TwitterClient
-	repo          repositories.TwitterFollowRepository
+	repo          TwitterFollowRepository
 	session       disgord.Session
 }
 
 func (c *twitterUnfollowCommandFactory) PrintHelp() string {
-	return botcommands.CommandPrefix + TwitterUnfollowString + " {screen_name} - unfollows Twitter user given the twitter users username."
+	return CommandPrefix + TwitterUnfollowString + " {screen_name} - unfollows Twitter user given the twitter users username."
 }
 
-func (c *twitterFollowCommandFactory) CreateUnfollowRequest(data *disgord.MessageCreate, user *model.Users) interface{} {
+func (c *twitterFollowCommandFactory) CreateUnfollowRequest(data *disgord.MessageCreate, user *Users) interface{} {
 	return &twitterUnfollowCommand{
 		twitterFollowCommandFactory: c,
 		data:                        data,
@@ -34,7 +29,7 @@ func (c *twitterFollowCommandFactory) CreateUnfollowRequest(data *disgord.Messag
 type twitterUnfollowCommand struct {
 	*twitterFollowCommandFactory
 	data *disgord.MessageCreate
-	user *model.Users
+	user *Users
 }
 
 func (c *twitterUnfollowCommand) ExecuteMessageCreateCommand() {
@@ -42,7 +37,7 @@ func (c *twitterUnfollowCommand) ExecuteMessageCreateCommand() {
 
 	followedUsers, err := c.repo.GetAllUniqueFollowedUsers()
 	if err != nil {
-		msg.React(context.Background(), c.session, "👎")
+		c.session.ReactToMessage(msg.ID, msg.ChannelID, "👎")
 		log.Error(err)
 		return
 	}
@@ -56,13 +51,13 @@ func (c *twitterUnfollowCommand) ExecuteMessageCreateCommand() {
 	}
 
 	if !foundUser {
-		msg.Reply(context.Background(), c.session, "Screen name not being followed.")
-		msg.React(context.Background(), c.session, "👎")
+		c.session.ReactToMessage(msg.ID, msg.ChannelID, "👎")
+		c.session.SendSimpleMessage(msg.ChannelID, "Screen name not being followed.")
 		return
 	}
 
 	c.repo.DeleteFollowedUser(msg.Content, msg.GuildID)
 	userID := c.twitterClient.SearchForUser(msg.Content)
 	c.twitterClient.RemoveUserFromFollowList(userID)
-	msg.React(context.Background(), c.session, "👍")
+	c.session.ReactToMessage(msg.ID, msg.ChannelID, "👍")
 }
