@@ -84,6 +84,7 @@ func LookForNewMangaChapter(repo MangaNotificationRepository, s DiscordSession) 
 }
 
 func checkEarlyManga(mangaNotification MangaNotification, s DiscordSession) {
+	log.Info("Starting search for manga chapter in ", mangaNotification.MangaURL)
 	req, err := http.NewRequest("GET", mangaNotification.MangaURL, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -107,7 +108,10 @@ func checkEarlyManga(mangaNotification MangaNotification, s DiscordSession) {
 	if c.isThereNewChapter(body) {
 		msg := fmt.Sprintf("%s New chapter found at %s", createMention(mangaNotification.Role), mangaNotification.MangaURL)
 		s.SendSimpleMessage(mangaNotification.Channel, msg)
+		log.Info("New chapter found at ", mangaNotification.MangaURL)
+		return
 	}
+	log.Info("No new chapter found at ", mangaNotification.MangaURL)
 }
 
 type earlymangacrawler struct {
