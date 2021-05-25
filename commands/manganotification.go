@@ -55,6 +55,8 @@ func (c mangaNotificationCommand) ExecuteMessageCreateCommand() {
 	role := FindRoleByName(roleName, roles)
 
 	mn := MangaNotification{
+		User:     c.user.UsersID,
+		Guild:    c.data.Message.GuildID,
 		MangaURL: split[0],
 		Channel:  channel.ID,
 		Role:     role.ID,
@@ -64,7 +66,10 @@ func (c mangaNotificationCommand) ExecuteMessageCreateCommand() {
 
 	if err != nil {
 		log.Error(err)
+		c.session.ReactToMessage(msg.ID, msg.ChannelID, "👎")
+		return
 	}
+	c.session.ReactToMessage(msg.ID, msg.ChannelID, "👍")
 }
 
 func LookForNewMangaChapter(repo MangaNotificationRepository, s DiscordSession) {
