@@ -47,3 +47,8 @@ type TournamentRepository interface {
 	IsUserTourneyOrganizer(userID int64, tourneyID int64) (bool, error)
 	RemoveTourney(discordServerID Snowflake) error
 }
+
+type MangaNotificationRepository interface {
+	SaveMangaNotification(*MangaNotification) error
+	GetAllMangaNotifications() ([]MangaNotification, error)
+}

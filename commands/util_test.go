@@ -15,7 +15,6 @@ var roleList = []*disgord.Role{
 	{Name: "👍"},
 }
 
-type mockGuild = commands.Guild
 
 type stringTestPair struct {
 	given string
