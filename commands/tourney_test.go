@@ -10,10 +10,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type onMessageCreateCommand interface {
-	ExecuteMessageCreateCommand()
-}
-
 type mockTourneyDB struct {
 	tourneys   map[commands.Snowflake]commands.Tournament
 	organizers map[int64]int64
@@ -49,27 +45,6 @@ func (r *mockTourneyDB) RemoveTourney(discordServerID commands.Snowflake) error 
 	delete(r.tourneys, discordServerID)
 	return nil
 }
-
-type mockSession struct {
-	message          string
-	reactedMessageID commands.Snowflake
-}
-
-func (s *mockSession) SendSimpleMessage(channel commands.Snowflake, m string) (*disgord.Message, error) {
-	s.message = m
-	return nil,nil
-}
-
-func (s *mockSession) ReactToMessage(msg commands.Snowflake, channel commands.Snowflake, emoji interface{}) {
-	s.reactedMessageID = msg
-}
-
-func (s *mockSession) getReactedMessage() commands.Snowflake {
-	return s.reactedMessageID
-}
-
-func (s *mockSession) CurrentUser() (*disgord.User, error) { return nil, nil}
-func (s *mockSession) Guild(id commands.Snowflake) commands.Guild { return nil }
 
 type mockChallongeClient struct {
 	id           string

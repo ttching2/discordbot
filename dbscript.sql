@@ -74,3 +74,13 @@ CREATE TABLE IF NOT EXISTS tournament_participant_xref(
     FOREIGN KEY(tournament_participant_id) REFERENCES tournament_participant(tournament_participant_id)
     PRIMARY KEY(tournament_id, tournament_participant_id)
 );
+
+CREATE TABLE IF NOT EXISTS manga_notification(
+    manga_notification_id INTEGER PRIMARY KEY,
+    author INTEGER,
+    manga_url TEXT,
+    guild BIG INTEGER,
+    channel BIG INTEGER,
+    role BIG INTEGER,
+    FOREIGN KEY(author) REFERENCES users(users_id)
+)

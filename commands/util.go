@@ -68,3 +68,7 @@ func FindTargetEmoji(emoji disgord.Snowflake, g Guild) *disgord.Emoji {
 	emojis, _ := g.GetEmojis()
 	return findEmojiByID(emoji, emojis)
 }
+
+func createMention(s Snowflake) string {
+	return "<@&" + s.String() + ">"
+}

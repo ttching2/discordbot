@@ -76,3 +76,12 @@ type TournamentParticipant struct {
 	Name                    string
 	ChallongeID             int
 }
+
+type MangaNotification struct {
+	MangaNotificationID int64
+	User                int64
+	MangaURL            string
+	Guild				Snowflake
+	Channel             Snowflake
+	Role                Snowflake
+}

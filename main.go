@@ -5,9 +5,11 @@ import (
 	"context"
 	"database/sql"
 	"os"
+	"time"
 
 	"discordbot/challonge"
 	"discordbot/commands"
+	"discordbot/repositories"
 	"discordbot/repositories/rolecommand"
 	strawpollrepo "discordbot/repositories/strawpolldeadline"
 	"discordbot/repositories/tourneyrepo"
@@ -18,6 +20,7 @@ import (
 
 	"github.com/andersfylling/disgord"
 	"github.com/andersfylling/disgord/std"
+	"github.com/go-co-op/gocron"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sirupsen/logrus"
 )
@@ -53,11 +56,12 @@ type jobQueue struct {
 }
 
 type repositoryContainer struct {
-	roleCommandRepo   commands.RoleReactRepository
-	twitterFollowRepo commands.TwitterFollowRepository
-	strawpollRepo     commands.StrawpollDeadlineRepository
-	usersRepo         commands.UsersRepository
-	tournamentRepo    commands.TournamentRepository
+	roleCommandRepo       commands.RoleReactRepository
+	twitterFollowRepo     commands.TwitterFollowRepository
+	strawpollRepo         commands.StrawpollDeadlineRepository
+	usersRepo             commands.UsersRepository
+	tournamentRepo        commands.TournamentRepository
+	mangaNotificationRepo commands.MangaNotificationRepository
 }
 
 func main() {
@@ -113,6 +117,11 @@ func initializeBot(s disgord.Session, config botConfig) (*discordBot, *middlewar
 	customMiddleWare, err := newMiddlewareHolder(discordSession, jobQueue, repos, twitterClient, strawpollClient, challongeClient)
 	discordBot := &discordBot{jobQueue: jobQueue}
 
+	scheduler := gocron.NewScheduler(time.UTC)
+	scheduler.Every(1).Hour().Do(commands.LookForNewMangaChapter, repos.mangaNotificationRepo, discordSession)
+
+	scheduler.StartAsync()
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -123,11 +132,12 @@ func initializeBot(s disgord.Session, config botConfig) (*discordBot, *middlewar
 func newRepositoryContainer() *repositoryContainer {
 	sqlDb := newSQLDB()
 	return &repositoryContainer{
-		roleCommandRepo:   rolecommand.New(sqlDb),
-		twitterFollowRepo: twitterfollow.New(sqlDb),
-		strawpollRepo:     strawpollrepo.New(sqlDb),
-		usersRepo:         users_repository.New(sqlDb),
-		tournamentRepo:    tourneyrepo.NewRepository(sqlDb),
+		roleCommandRepo:       rolecommand.New(sqlDb),
+		twitterFollowRepo:     twitterfollow.New(sqlDb),
+		strawpollRepo:         strawpollrepo.New(sqlDb),
+		usersRepo:             users_repository.New(sqlDb),
+		tournamentRepo:        tourneyrepo.NewRepository(sqlDb),
+		mangaNotificationRepo: repositories.NewMangaNotificationRepository(sqlDb),
 	}
 }
 
