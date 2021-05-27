@@ -104,8 +104,9 @@ func checkEarlyManga(mangaNotification MangaNotification, s DiscordSession) {
 		return
 	}
 	body := node.FirstChild.NextSibling.FirstChild.NextSibling.NextSibling
-	c := earlymangacrawler{body, 0}
-	if c.isThereNewChapter(body) {
+	c := earlymangacrawler{body, 0, false}
+	c.isThereNewChapter(body)
+	if  c.newChapter {
 		msg := fmt.Sprintf("%s New chapter found at %s", createMention(mangaNotification.Role), mangaNotification.MangaURL)
 		s.SendSimpleMessage(mangaNotification.Channel, msg)
 		log.Info("New chapter found at ", mangaNotification.MangaURL)
@@ -115,17 +116,20 @@ func checkEarlyManga(mangaNotification MangaNotification, s DiscordSession) {
 }
 
 type earlymangacrawler struct {
-	n   *html.Node
-	row int
+	n          *html.Node
+	row        int
+	newChapter bool
 }
 
-func (t *earlymangacrawler) isThereNewChapter(n *html.Node) bool {
+func (t *earlymangacrawler) isThereNewChapter(n *html.Node) {
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
 		if child.Data == "div" {
 			for _, attr := range child.Attr {
 				if attr.Key == "class" && strings.Contains(attr.Val, "chapter-row") {
 					if t.row == 2 {
-						return isChapterNew(child)
+						t.row++
+						t.newChapter = isChapterNew(child)
+						return
 					}
 					t.row++
 				}
@@ -133,20 +137,19 @@ func (t *earlymangacrawler) isThereNewChapter(n *html.Node) bool {
 		}
 		t.isThereNewChapter(child)
 	}
-	return false
 }
 
 func isChapterNew(n *html.Node) bool {
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
 		for _, attr := range child.Attr {
 			if attr.Key == "title" {
-				time, err := time.Parse(earlyMangaTimeFormat, attr.Val)
+				releaseTime, err := time.Parse(earlyMangaTimeFormat, attr.Val)
 				if err != nil {
 					log.Error(err)
 					return false
 				} else {
-					now := time.Local().UTC()
-					return now.Sub(time).Hours() <= 1
+					now := time.Now().UTC()
+					return now.Sub(releaseTime).Hours() <= 1
 				}
 			}
 		}
