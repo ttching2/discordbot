@@ -119,7 +119,7 @@ func initializeBot(s disgord.Session, config botConfig) (*discordBot, *middlewar
 	discordBot := &discordBot{jobQueue: jobQueue}
 
 	scheduler := gocron.NewScheduler(time.UTC)
-	scheduler.Every(1).Hour().Do(commands.LookForNewMangaChapter, repos.mangaNotificationRepo, discordSession)
+	scheduler.Every(1).Hour().Do(commands.LookForNewMangaChapter, repos.mangaLinkRepo, discordSession)
 
 	scheduler.StartAsync()
 
