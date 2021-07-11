@@ -150,9 +150,7 @@ func (r *mangaLinkRepo) GetMangaLinkByLink(link string) (commands.MangaLink, err
 	const query = `SELECT * FROM manga_links WHERE manga_link = ?;`
 
 	row := r.db.QueryRow(query, link)
-	if row.Err() != nil && row.Err().Error() != "sql: no rows in result set" { 
-		return commands.MangaLink{}, nil
-	} else if row.Err() != nil {
+	if row.Err() != nil {
 		return commands.MangaLink{}, row.Err()
 	}
 
@@ -162,7 +160,9 @@ func (r *mangaLinkRepo) GetMangaLinkByLink(link string) (commands.MangaLink, err
 		&completedCommand.MangaLinkID,
 		&completedCommand.MangaLink)
 
-	if err != nil {
+	if err != nil && err.Error() == "sql: no rows in result set" {
+		return commands.MangaLink{}, nil
+	} else if err != nil {
 		return commands.MangaLink{}, err
 	}
 
