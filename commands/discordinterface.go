@@ -13,6 +13,8 @@ TODO Probably rename this package and some other stuff
 type DiscordSession interface {
 	SendSimpleMessage(Snowflake, string) (*disgord.Message, error)
 	ReactToMessage(msg Snowflake, channel Snowflake, emoji interface{})
+	ReactWithThumbsDown(*disgord.Message)
+	ReactWithThumbsUp(*disgord.Message)
 	CurrentUser() (*disgord.User, error)
 	Guild(Snowflake) Guild
 }
@@ -35,6 +37,14 @@ func (s *simpleDiscordSession) SendMessage(channel Snowflake, params *disgord.Cr
 
 func (s *simpleDiscordSession) ReactToMessage(msg Snowflake, channel Snowflake, emoji interface{}) {
 	s.disgordSession.Channel(channel).Message(msg).Reaction(emoji).WithContext(context.Background()).Create()
+}
+
+func (s *simpleDiscordSession) ReactWithThumbsDown(msg *disgord.Message) {
+	s.ReactToMessage(msg.ID, msg.ChannelID, "👎")
+}
+
+func (s *simpleDiscordSession)ReactWithThumbsUp(msg *disgord.Message) {
+	s.ReactToMessage(msg.ID, msg.ChannelID, "👍")
 }
 
 func (s *simpleDiscordSession) CurrentUser() (*disgord.User, error) {

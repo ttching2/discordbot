@@ -31,6 +31,8 @@ func (s *mockSession) getReactedMessage() commands.Snowflake {
 
 func (s *mockSession) CurrentUser() (*disgord.User, error)        { return nil, nil }
 func (s *mockSession) Guild(id commands.Snowflake) commands.Guild { return s.guild }
+func (s *mockSession) ReactWithThumbsDown(*disgord.Message) {}
+func (s *mockSession) ReactWithThumbsUp(*disgord.Message) {}
 
 type mockGuild struct {
 	channels []*disgord.Channel

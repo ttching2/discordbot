@@ -80,8 +80,13 @@ type TournamentParticipant struct {
 type MangaNotification struct {
 	MangaNotificationID int64
 	User                int64
-	MangaURL            string
-	Guild				Snowflake
+	Guild               Snowflake
 	Channel             Snowflake
 	Role                Snowflake
+}
+
+type MangaLink struct {
+	MangaLinkID        int64
+	MangaLink          string
+	MangaNotifications []MangaNotification
 }

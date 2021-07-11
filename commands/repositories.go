@@ -51,4 +51,11 @@ type TournamentRepository interface {
 type MangaNotificationRepository interface {
 	SaveMangaNotification(*MangaNotification) error
 	GetAllMangaNotifications() ([]MangaNotification, error)
+	AddMangaLink(mangaNotificationId int64, mangaLinkId int64) error
+}
+
+type MangaLinksRepository interface {
+	SaveMangaLink(*MangaLink) error
+	GetMangaLinkByLink(string) (MangaLink, error)
+	GetAllMangaLinks() ([]MangaLink, error)
 }

@@ -78,9 +78,29 @@ CREATE TABLE IF NOT EXISTS tournament_participant_xref(
 CREATE TABLE IF NOT EXISTS manga_notification(
     manga_notification_id INTEGER PRIMARY KEY,
     author INTEGER,
-    manga_url TEXT,
+    -- manga_url TEXT,
     guild BIG INTEGER,
     channel BIG INTEGER,
     role BIG INTEGER,
     FOREIGN KEY(author) REFERENCES users(users_id)
-)
+);
+
+CREATE TABLE IF NOT EXISTS manga_links(
+    manga_link_id INTEGER PRIMARY KEY,
+    manga_link TEXT UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS manga_notification_links(
+    manga_notification_id INTEGER,
+    manga_link_id INTEGER,
+    FOREIGN KEY(manga_notification_id) REFERENCES manga_notification(manga_notification_id),
+    FOREIGN KEY(manga_link_id) REFERENCES manga_links(manga_link_id),
+    PRIMARY KEY(manga_notification_id, manga_link_id)
+);
+
+-- INSERT INTO manga_links(manga_link)
+-- SELECT DISTINCT manga_url from manga_notification;
+-- INSERT INTO manga_notification_links (manga_notification_id, manga_link_id)
+-- SELECT mn.manga_notification_id, ml.manga_link_id FROM manga_notification as mn
+-- JOIN  manga_links AS ml ON mn.manga_url = ml.manga_link;
+-- ALTER TABLE manga_notification DROP COLUMgoN manga_url;
