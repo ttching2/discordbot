@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -75,10 +77,10 @@ func (c mangaNotificationCommand) ExecuteMessageCreateCommand() {
 	}
 
 	mn := MangaNotification{
-		User:     c.user.UsersID,
-		Guild:    c.data.Message.GuildID,
-		Channel:  channel.ID,
-		Role:     role.ID,
+		User:    c.user.UsersID,
+		Guild:   c.data.Message.GuildID,
+		Channel: channel.ID,
+		Role:    role.ID,
 	}
 
 	err = c.mangaNotificationRepo.SaveMangaNotification(&mn)
@@ -101,7 +103,7 @@ func (c mangaNotificationCommand) ExecuteMessageCreateCommand() {
 		c.session.ReactToMessage(msg.ID, msg.ChannelID, "👎")
 		return
 	}
-	
+
 	c.session.ReactToMessage(msg.ID, msg.ChannelID, "👍")
 }
 
@@ -112,12 +114,42 @@ func LookForNewMangaChapter(repo MangaLinksRepository, s DiscordSession) {
 		return
 	}
 	for _, mangaLink := range mangaLinks {
-		go checkEarlyManga(mangaLink, s)
+		go searchForNewChapter(mangaLink, s)
 	}
 }
 
-func checkEarlyManga(mangaLink MangaLink, s DiscordSession) {
-	req, err := http.NewRequest("GET", mangaLink.MangaLink, nil)
+func searchForNewChapter(mangaLink MangaLink, s DiscordSession) {
+	url, err := url.Parse(mangaLink.MangaLink)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+		node, err := getHtmlPage(mangaLink.MangaLink)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+		newChapter := false
+		switch url.Host {
+		case "manganato.com":
+			newChapter = findNewMangeloChapter(node)
+		case "earlymanga.org":
+			newChapter = checkEarlyManga(node)
+		default:
+			log.Error("unknown host ", mangaLink.MangaLink)
+			return
+		}
+		if newChapter {
+			for _, guild := range mangaLink.MangaNotifications {
+				msg := fmt.Sprintf("%s New chapter found at %s", createMention(guild.Role), mangaLink.MangaLink)
+				s.SendSimpleMessage(guild.Channel, msg)
+				log.Info("New chapter found at ", mangaLink.MangaLink)
+			}
+		}
+}
+
+func getHtmlPage(mangaLink string) (*html.Node, error) {
+	req, err := http.NewRequest("GET", mangaLink, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -127,35 +159,31 @@ func checkEarlyManga(mangaLink MangaLink, s DiscordSession) {
 	r, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Fatal(err)
-		return
+		return nil, err
 	}
 	node, _ := html.Parse(r.Body)
 	r.Body.Close()
 	if node.FirstChild.NextSibling == nil {
 		log.Error("Empty body being fetched from earlymanga")
-		return
+		return nil, errors.New("link returned empty body")
 	}
-	c := earlymangacrawler{node, 0, false}
-	c.isThereNewChapter(node)
-	if c.newChapter {
-		for _, guild := range mangaLink.MangaNotifications {
-			msg := fmt.Sprintf("%s New chapter found at %s", createMention(guild.Role), mangaLink.MangaLink)
-			s.SendSimpleMessage(guild.Channel, msg)
-			log.Info("New chapter found at ", mangaLink.MangaLink)
-		}
-		return
-	}
+	return node, nil
+}
+
+func checkEarlyManga(node *html.Node) bool {
+	c := earlymangacrawler{0, false}
+	body := node.FirstChild.NextSibling.FirstChild.NextSibling.NextSibling
+	c.isThereNewChapter(body)
+	return c.newChapter
 }
 
 type earlymangacrawler struct {
-	n          *html.Node
 	row        int
 	newChapter bool
 }
 
 func (t *earlymangacrawler) isThereNewChapter(n *html.Node) {
-	body := n.FirstChild.NextSibling.FirstChild.NextSibling.NextSibling
-	for child := body.FirstChild; child != nil; child = child.NextSibling {
+	for child := n.FirstChild; child != nil; child = child.NextSibling {
 		if child.Data == "div" {
 			for _, attr := range child.Attr {
 				if attr.Key == "class" && strings.Contains(attr.Val, "chapter-row") {
@@ -190,12 +218,7 @@ func isChapterNew(n *html.Node) bool {
 	return false
 }
 
-type mangelocrawler struct {
-	n          *html.Node
-	newChapter bool
-}
-
-func (c *mangelocrawler) findNewChapter(n *html.Node) {
+func findNewMangeloChapter(n *html.Node) bool {
 	body := n.FirstChild.FirstChild.NextSibling
 	bodySite := body.LastChild.PrevSibling.PrevSibling.PrevSibling.PrevSibling.PrevSibling.PrevSibling.PrevSibling
 	containerMain := bodySite.FirstChild.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling
@@ -204,10 +227,10 @@ func (c *mangelocrawler) findNewChapter(n *html.Node) {
 	chapterRows := chapterList.FirstChild.NextSibling.NextSibling.NextSibling
 	firstRow := chapterRows.FirstChild.NextSibling
 	time := firstRow.FirstChild.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling
-	c.newChapter = c.findTime(time)
+	return findMangeloTime(time)
 }
 
-func (c *mangelocrawler) findTime(n *html.Node) bool {
+func findMangeloTime(n *html.Node) bool {
 	for _, attr := range n.Attr {
 		if attr.Key == "title" {
 			releaseTime, err := time.Parse("Jan 2,2006 15:04", attr.Val)
