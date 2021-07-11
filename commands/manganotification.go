@@ -51,10 +51,20 @@ func (c mangaNotificationCommand) ExecuteMessageCreateCommand() {
 	channelName := split[1]
 	guild := c.session.Guild(msg.GuildID)
 	channel := FindChannelByName(channelName, guild)
+	if channel == nil {
+		c.session.SendSimpleMessage(msg.ChannelID, "Channel name not found")
+		c.session.ReactWithThumbsDown(msg)
+		return
+	}
 
 	roleName := split[2]
 	roles, _ := c.session.Guild(msg.GuildID).GetRoles()
 	role := FindRoleByName(roleName, roles)
+	if role == nil {
+		c.session.SendSimpleMessage(msg.ChannelID, "Role name not found")
+		c.session.ReactWithThumbsDown(msg)
+		return
+	}
 
 	mangaUrl := split[0]
 	mangaLink, err := c.mangaLinkRepo.GetMangaLinkByLink(mangaUrl)
