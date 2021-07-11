@@ -105,7 +105,10 @@ func RestartTwitterFollows(client disgord.Session, dbClient TwitterFollowReposit
 		}
 
 		for i := range twitterFollowCommands {
-			client.Channel(twitterFollowCommands[i].Channel).CreateMessage(newMessageParams)
+			_, err = client.Channel(twitterFollowCommands[i].Channel).CreateMessage(newMessageParams)
+			if err != nil {
+				log.WithField("twitterScreenName", tweet.User.ScreenName).Error(err)
+			}
 		}
 
 	}
