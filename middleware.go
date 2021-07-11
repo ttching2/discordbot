@@ -65,7 +65,7 @@ func newMiddlewareHolder(discordSession commands.DiscordSession,
 	twitterCommandFactory := commands.NewTwitterFollowCommandFactory(discordSession, twitterClient, repos.twitterFollowRepo)
 	strawpollFactory := commands.NewCommandFactory(discordSession, strawpollClient, repos.strawpollRepo)
 	tourneyFactory := commands.NewTourneyCommandRequestFactory(discordSession, repos.tournamentRepo, cclient)
-	mangaNotificationFactory := commands.NewMangaNotificationFactory(repos.mangaNotificationRepo, discordSession)
+	mangaNotificationFactory := commands.NewMangaNotificationFactory(repos.mangaNotificationRepo, repos.mangaLinkRepo, discordSession)
 
 	commandMap := make(map[string]func(data *disgord.MessageCreate, user *commands.Users)interface{})
 	

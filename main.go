@@ -62,6 +62,7 @@ type repositoryContainer struct {
 	usersRepo             commands.UsersRepository
 	tournamentRepo        commands.TournamentRepository
 	mangaNotificationRepo commands.MangaNotificationRepository
+	mangaLinkRepo         commands.MangaLinksRepository
 }
 
 func main() {
@@ -138,6 +139,7 @@ func newRepositoryContainer() *repositoryContainer {
 		usersRepo:             users_repository.New(sqlDb),
 		tournamentRepo:        tourneyrepo.NewRepository(sqlDb),
 		mangaNotificationRepo: repositories.NewMangaNotificationRepository(sqlDb),
+		mangaLinkRepo:         repositories.NewMangaLinkRepository(sqlDb),
 	}
 }
 
