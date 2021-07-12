@@ -126,12 +126,12 @@ func searchForNewChapter(mangaLink MangaLink, s DiscordSession) {
 		}
 		node, err := getHtmlPage(mangaLink.MangaLink)
 		if err != nil {
-			log.Error(err)
+			log.WithField("manga link", mangaLink.MangaLink).Error(err)
 			return
 		}
 		newChapter := false
 		switch url.Host {
-		case "manganato.com":
+		case "readmanganato.com":
 			newChapter = findNewMangeloChapter(node)
 		case "earlymanga.org":
 			newChapter = checkEarlyManga(node)
@@ -161,12 +161,12 @@ func getHtmlPage(mangaLink string) (*html.Node, error) {
 		log.Fatal(err)
 		return nil, err
 	}
-	node, _ := html.Parse(r.Body)
-	r.Body.Close()
-	if node.FirstChild.NextSibling == nil {
-		log.Error("Empty body being fetched from earlymanga")
+	if r.ContentLength == -1 {
 		return nil, errors.New("link returned empty body")
 	}
+	node, _ := html.Parse(r.Body)
+	r.Body.Close()
+	
 	return node, nil
 }
 
