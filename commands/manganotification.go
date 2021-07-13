@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -163,9 +162,6 @@ func getHtmlPage(mangaLink string) (*html.Node, error) {
 	}
 	node, _ := html.Parse(r.Body)
 	r.Body.Close()
-	if node.FirstChild.FirstChild == nil {
-		return nil, errors.New("link returned empty body")
-	}
 	return node, nil
 }
 
