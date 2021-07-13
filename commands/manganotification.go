@@ -161,12 +161,11 @@ func getHtmlPage(mangaLink string) (*html.Node, error) {
 		log.Fatal(err)
 		return nil, err
 	}
-	if r.ContentLength == -1 {
-		return nil, errors.New("link returned empty body")
-	}
 	node, _ := html.Parse(r.Body)
 	r.Body.Close()
-	
+	if node.FirstChild.FirstChild == nil {
+		return nil, errors.New("link returned empty body")
+	}
 	return node, nil
 }
 
