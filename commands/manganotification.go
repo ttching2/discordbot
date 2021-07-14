@@ -12,6 +12,7 @@ import (
 )
 
 const earlyMangaTimeFormat = "2006-01-02 15:04:05 MST (-07:00)"
+const manganeloTimeFormat = "Jan 2,2006 15:04"
 const MangaNotificationString = "manga-notification"
 
 type mangaNotificationCommandFactory struct {
@@ -228,12 +229,12 @@ func findNewMangeloChapter(n *html.Node) bool {
 func findMangeloTime(n *html.Node) bool {
 	for _, attr := range n.Attr {
 		if attr.Key == "title" {
-			releaseTime, err := time.Parse("Jan 2,2006 15:04", attr.Val)
+			releaseTime, err := time.Parse(manganeloTimeFormat, attr.Val)
 			if err != nil {
 				fmt.Print(err)
 			} else {
-				now := time.Now().Add(time.Hour * 3)
-				return now.Sub(releaseTime).Hours() <= 1
+				now := time.Now().Add(time.Hour * 8)
+				return now.Sub(releaseTime).Hours() <= 1 && now.Sub(releaseTime).Hours() >= 0
 			}
 		}
 	}
