@@ -46,7 +46,7 @@ type mangaNotificationCommand struct {
 func (c mangaNotificationCommand) ExecuteMessageCreateCommand() {
 	msg := c.data.Message
 	split := strings.Split(msg.Content, " ")
-	if len(split) != 3 {
+	if len(split) < 3 {
 		c.session.SendSimpleMessage(msg.ChannelID, "Incorrect number of arguments for command.")
 		return
 	}
@@ -59,7 +59,7 @@ func (c mangaNotificationCommand) ExecuteMessageCreateCommand() {
 		return
 	}
 
-	roleName := split[2]
+	roleName := strings.Join(split[2:]," ")
 	roles, _ := c.session.Guild(msg.GuildID).GetRoles()
 	role := FindRoleByName(roleName, roles)
 	if role == nil {
