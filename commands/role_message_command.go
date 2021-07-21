@@ -7,8 +7,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const RoleReactString = "react"
-
 type roleCommandRequestFactory struct {
 	repo    RoleReactRepository
 	session DiscordSession

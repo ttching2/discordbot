@@ -6,17 +6,17 @@ import (
 	"github.com/andersfylling/disgord"
 )
 
-/*
-TODO Probably rename this package and some other stuff
-*/
+const discordEmojiCDN = "https://cdn.discordapp.com/emojis/"
 
 type DiscordSession interface {
+	SendMessage(Snowflake, *disgord.CreateMessageParams) (*disgord.Message, error)
 	SendSimpleMessage(Snowflake, string) (*disgord.Message, error)
 	ReactToMessage(msg Snowflake, channel Snowflake, emoji interface{})
 	ReactWithThumbsDown(*disgord.Message)
 	ReactWithThumbsUp(*disgord.Message)
 	CurrentUser() (*disgord.User, error)
 	Guild(Snowflake) Guild
+	Channel(Snowflake) Channel
 }
 
 func NewSimpleDiscordSession(s disgord.Session) *simpleDiscordSession{
@@ -31,8 +31,8 @@ func (s *simpleDiscordSession) SendSimpleMessage(channel Snowflake, msg string) 
 	return s.disgordSession.WithContext(context.Background()).SendMsg(channel, createSimpleDisgordMessage(msg))
 }
 
-func (s *simpleDiscordSession) SendMessage(channel Snowflake, params *disgord.CreateMessageParams) {
-	s.disgordSession.WithContext(context.Background()).SendMsg(channel, params.Content)
+func (s *simpleDiscordSession) SendMessage(channel Snowflake, params *disgord.CreateMessageParams) (*disgord.Message, error) {
+	return s.disgordSession.WithContext(context.Background()).SendMsg(channel, params)
 }
 
 func (s *simpleDiscordSession) ReactToMessage(msg Snowflake, channel Snowflake, emoji interface{}) {
@@ -55,6 +55,10 @@ func (s *simpleDiscordSession) Guild(guild Snowflake) Guild {
 	return s.disgordSession.Guild(guild)
 }
 
+func (s *simpleDiscordSession) Channel(channel Snowflake) Channel {
+	return s.disgordSession.Channel(channel)
+}
+
 func createSimpleDisgordMessage(m string) *disgord.CreateMessageParams {
 	return &disgord.CreateMessageParams{
 		Content: m,
@@ -66,4 +70,8 @@ type Guild interface {
 	GetRoles(flags ...disgord.Flag) ([]*disgord.Role, error)
 	GetEmojis(flags ...disgord.Flag) ([]*disgord.Emoji, error)
 	Member(userID Snowflake) disgord.GuildMemberQueryBuilder
+}
+
+type Channel interface {
+	GetMessages(params *disgord.GetMessagesParams, flags ...disgord.Flag) ([]*disgord.Message, error)
 }

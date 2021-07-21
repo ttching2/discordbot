@@ -13,7 +13,6 @@ import (
 
 const earlyMangaTimeFormat = "2006-01-02 15:04:05 MST (-07:00)"
 const manganeloTimeFormat = "Jan 2,2006 15:04"
-const MangaNotificationString = "manga-notification"
 
 type mangaNotificationCommandFactory struct {
 	mangaNotificationRepo MangaNotificationRepository

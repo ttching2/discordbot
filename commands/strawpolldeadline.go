@@ -10,8 +10,6 @@ import (
 	"github.com/andersfylling/disgord"
 )
 
-const StrawPollDeadlineString = "strawpoll-deadline"
-
 type strawpollDeadlineCommandFactory struct {
 	strawpollClient *strawpoll.Client
 	repo            StrawpollDeadlineRepository

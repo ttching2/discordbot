@@ -66,6 +66,7 @@ func newMiddlewareHolder(discordSession commands.DiscordSession,
 	strawpollFactory := commands.NewCommandFactory(discordSession, strawpollClient, repos.strawpollRepo)
 	tourneyFactory := commands.NewTourneyCommandRequestFactory(discordSession, repos.tournamentRepo, cclient)
 	mangaNotificationFactory := commands.NewMangaNotificationFactory(repos.mangaNotificationRepo, repos.mangaLinkRepo, discordSession)
+	emojifyCommandFactory := commands.NewEmojifyCommandFactory(discordSession)
 
 	commandMap := make(map[string]func(data *disgord.MessageCreate, user *commands.Users)interface{})
 	
@@ -80,6 +81,7 @@ func newMiddlewareHolder(discordSession commands.DiscordSession,
 	commandMap[commands.TournamentMatchWinString] = tourneyFactory.CreateWinnerCommand
 	commandMap[commands.TournamentFinishString] = tourneyFactory.CreateTourneyCloseCommand
 	commandMap[commands.MangaNotificationString] = mangaNotificationFactory.CreateRequest
+	commandMap[commands.EmojifyString] = emojifyCommandFactory.CreateRequest
 
 	// var commandList []help.PrintHelp
 	// for _, c := range commands {
