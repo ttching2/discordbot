@@ -1,6 +1,10 @@
 package commands
 
 import (
+	"bytes"
+	"io"
+	"io/ioutil"
+	"net/http"
 	"strings"
 
 	"github.com/andersfylling/disgord"
@@ -71,4 +75,26 @@ func FindTargetEmoji(emoji disgord.Snowflake, g Guild) *disgord.Emoji {
 
 func createMention(s Snowflake) string {
 	return "<@&" + s.String() + ">"
+}
+
+func doHttpGetRequest(link string) io.Reader {
+	req, err := http.NewRequest("GET", link, nil)
+	if err != nil {
+		log.Error(err)
+		return nil
+	}
+
+	r, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Error(err)
+		return nil
+	}
+	defer r.Body.Close()
+
+	result, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Error(err)
+		return nil
+	}
+	return bytes.NewReader(result)
 }

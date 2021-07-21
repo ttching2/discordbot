@@ -6,8 +6,6 @@ import (
 	"github.com/andersfylling/disgord"
 )
 
-const TwitterUnfollowString = "twitter-unfollow"
-
 type twitterUnfollowCommandFactory struct {
 	twitterClient *botTwitter.TwitterClient
 	repo          TwitterFollowRepository

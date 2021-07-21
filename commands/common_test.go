@@ -33,6 +33,8 @@ func (s *mockSession) CurrentUser() (*disgord.User, error)        { return nil, 
 func (s *mockSession) Guild(id commands.Snowflake) commands.Guild { return s.guild }
 func (s *mockSession) ReactWithThumbsDown(*disgord.Message) {}
 func (s *mockSession) ReactWithThumbsUp(*disgord.Message) {}
+func (s *mockSession) Channel(commands.Snowflake) commands.Channel {return nil}
+func (s *mockSession) SendMessage(channel commands.Snowflake, params *disgord.CreateMessageParams) (*disgord.Message, error) {return nil, nil}
 
 type mockGuild struct {
 	channels []*disgord.Channel

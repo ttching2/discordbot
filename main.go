@@ -153,7 +153,7 @@ func run(client *disgord.Client, bot *discordBot, customMiddleWare *middlewareHo
 		WithMiddleware(customMiddleWare.filterBotMsg, customMiddleWare.commandInUse, customMiddleWare.createMessageContentForNonCommand).
 		MessageCreate(bot.handleMessageCreate)
 	client.Gateway().
-		WithMiddleware(customMiddleWare.filterBotMsg, content.StripPrefix, customMiddleWare.isFromAdmin, customMiddleWare.handleDiscordEvent).
+		WithMiddleware(customMiddleWare.filterBotMsg, content.StripPrefix, customMiddleWare.handleDiscordEvent).
 		MessageCreate(bot.handleMessageCreate)
 	client.Gateway().
 		WithMiddleware(customMiddleWare.handleDiscordEvent).

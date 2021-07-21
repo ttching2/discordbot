@@ -4,8 +4,6 @@ import (
 	"github.com/andersfylling/disgord"
 )
 
-const TwitterFollowListString = "twitter-follow-list"
-
 type twitterFollowListCommandFactory struct {
 	repo    TwitterFollowRepository
 	session disgord.Session

@@ -9,8 +9,6 @@ import (
 	"github.com/dghubble/go-twitter/twitter"
 )
 
-const TwitterFollowString = "twitter-follow"
-
 type twitterFollowCommandFactory struct {
 	twitterClient *botTwitter.TwitterClient
 	repo          TwitterFollowRepository
