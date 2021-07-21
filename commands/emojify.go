@@ -14,7 +14,7 @@ import (
 	"github.com/disintegration/gift"
 )
 
-const regexpString = "<a?:[a-zA-Z_]+:\\d+>"
+const regexpString = "<a?:[0-9a-zA-Z_]+:\\d+>"
 
 type emojifyCommandFactory struct {
 	session        DiscordSession
