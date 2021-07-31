@@ -134,7 +134,7 @@ func (m *middlewareHolder) createOnMessageCommand(e *disgord.MessageCreate) inte
 		messageContent = e.Message.Content[len(split[0])+1:]
 	}
 
-	createCommand, ok := m.commandFactory[split[0]]
+	createCommand, ok := m.commandFactory[strings.ToLower(split[0])]
 	if !ok {
 		return nil
 	}
