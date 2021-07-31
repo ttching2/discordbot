@@ -7,6 +7,7 @@ import (
 	_ "image/gif"
 	"image/png"
 	"io"
+	"math/rand"
 	"regexp"
 	"strings"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/disintegration/gift"
 )
 
-const regexpString = "<a?:[0-9a-zA-Z_]+:\\d+>"
+const discordEmojiFormat = "<a?:[0-9a-zA-Z_]+:\\d+>"
 
 type emojifyCommandFactory struct {
 	session        DiscordSession
@@ -36,7 +37,7 @@ func (c *emojifyCommandFactory) CreateRequest(data *disgord.MessageCreate, user 
 }
 
 func NewEmojifyCommandFactory(s DiscordSession) *emojifyCommandFactory {
-	r, _ := regexp.Compile(regexpString)
+	r, _ := regexp.Compile(discordEmojiFormat)
 	return &emojifyCommandFactory{
 		session:        s,
 		compiledRegexp: r,
@@ -72,8 +73,13 @@ func (c *emojifyCommand) ExecuteMessageCreateCommand() {
 
 	response := doHttpGetRequest(discordEmojiCDN + string(emojiId) + extension)
 
-	var emojiFilters []filters
-	emojiFilters = append(emojiFilters, resize{2})
+	emojiFilters := []func (image.Image) gift.Filter{
+		func(img image.Image) gift.Filter {return gift.Resize(img.Bounds().Max.X*2, img.Bounds().Max.Y*2, gift.BoxResampling)},
+	}
+
+	if(len(c.msg.Message.Content) > 0) {
+		emojiFilters = append(emojiFilters, parseArguments(c.msg.Message.Content)...)
+	}
 
 	var reader io.Reader
 	if extension == ".png" {
@@ -98,11 +104,62 @@ func (c *emojifyCommand) ExecuteMessageCreateCommand() {
 	}
 }
 
-func filterPng(src io.Reader, fs []filters) (io.Reader,error) {
+func parseArguments(args string) []func(image.Image) gift.Filter {
+	var fs []func(image.Image) gift.Filter
+	for _, s := range args {
+		switch s {
+		case 'p':
+			f := func(img image.Image) gift.Filter {return gift.Pixelate(5)}
+			fs = append(fs, f)
+		case 'i':
+			f := func(img image.Image) gift.Filter {return gift.Invert()}
+			fs = append(fs, f)
+		case 'r':
+			f := func(img image.Image) gift.Filter {return gift.Rotate90()}
+			fs = append(fs, f)
+		case 'b':
+			f := func(img image.Image) gift.Filter {return gift.GaussianBlur(3)}
+			fs = append(fs, f)
+		case 'h':
+			f := func(img image.Image) gift.Filter {return gift.Hue(90)}
+			fs = append(fs, f)
+		case 'c':
+			f := func(img image.Image) gift.Filter {return gift.CropToSize(rand.Intn(img.Bounds().Max.X),rand.Intn(img.Bounds().Max.Y), randomAnchor())}
+			fs = append(fs, f)
+		}
+	}
+	return fs
+}
+
+func randomAnchor() gift.Anchor {
+	switch rand.Intn(9) {
+	case 0:
+		return gift.CenterAnchor
+	case 1:
+		return gift.TopLeftAnchor
+	case 2:
+		return gift.TopAnchor
+	case 3:
+		return gift.TopRightAnchor
+	case 4:
+		return gift.LeftAnchor
+	case 5:
+		return gift.RightAnchor
+	case 6:
+		return gift.BottomLeftAnchor
+	case 7:
+		return gift.BottomAnchor
+	case 8:
+		return gift.BottomRightAnchor
+	}
+	return gift.CenterAnchor
+}
+
+func filterPng(src io.Reader, fs []func (image.Image) gift.Filter) (io.Reader,error) {
 	img, _, err := image.Decode(src)
 	giftFilter := gift.New()
 	for _, f := range fs {
-		giftFilter.Add(f.applyFilter(img))
+		giftFilter.Add(f(img))
 	}
 	destinationImg := image.NewRGBA(giftFilter.Bounds(img.Bounds()))
 	giftFilter.Draw(destinationImg, img)
@@ -117,14 +174,14 @@ func filterPng(src io.Reader, fs []filters) (io.Reader,error) {
 	return bytes.NewReader(buff.Bytes()), nil
 }
 
-func filterGif(src io.Reader, fs []filters) (io.Reader, error) {
+func filterGif(src io.Reader, fs []func (image.Image) gift.Filter) (io.Reader, error) {
 	srcGif, err := gif.DecodeAll(src)
 	if err != nil {
 		return nil, err
 	}
 	giftFilter := gift.New()
 	for _, f := range fs {
-		giftFilter.Add(f.applyFilter(srcGif.Image[0]))
+		giftFilter.Add(f(srcGif.Image[0]))
 	}
 	srcGif.Config.Height = giftFilter.Bounds(srcGif.Image[0].Rect).Max.Y
 	srcGif.Config.Width = giftFilter.Bounds(srcGif.Image[0].Rect).Max.X
@@ -140,16 +197,4 @@ func filterGif(src io.Reader, fs []filters) (io.Reader, error) {
 		return nil, err
 	}
 	return bytes.NewReader(buff.Bytes()), nil
-}
-
-type filters interface {
-	applyFilter(image.Image) gift.Filter
-}
-
-type resize struct {
-	size int
-}
-
-func (f resize) applyFilter(img image.Image) gift.Filter {
-	return gift.Resize(img.Bounds().Max.X*f.size, img.Bounds().Max.Y*f.size, gift.BoxResampling)
 }
