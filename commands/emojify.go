@@ -106,7 +106,7 @@ func (c *emojifyCommand) ExecuteMessageCreateCommand() {
 
 func parseArguments(args string) []func(image.Image) gift.Filter {
 	var fs []func(image.Image) gift.Filter
-	for _, s := range args {
+	for _, s := range strings.ToLower(args) {
 		switch s {
 		case 'p':
 			f := func(img image.Image) gift.Filter {return gift.Pixelate(5)}
