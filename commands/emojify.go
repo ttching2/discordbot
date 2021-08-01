@@ -18,8 +18,8 @@ import (
 const discordEmojiFormat = "<a?:[0-9a-zA-Z_]+:\\d+>"
 
 type emojifyCommandFactory struct {
-	session        DiscordSession
-	compiledRegexp *regexp.Regexp
+	session     DiscordSession
+	emojiParser *regexp.Regexp
 }
 
 type emojifyCommand struct {
@@ -39,49 +39,61 @@ func (c *emojifyCommandFactory) CreateRequest(data *disgord.MessageCreate, user 
 func NewEmojifyCommandFactory(s DiscordSession) *emojifyCommandFactory {
 	r, _ := regexp.Compile(discordEmojiFormat)
 	return &emojifyCommandFactory{
-		session:        s,
-		compiledRegexp: r,
+		session:     s,
+		emojiParser: r,
 	}
 }
 
 func (c *emojifyCommand) ExecuteMessageCreateCommand() {
-	params := disgord.GetMessagesParams{Before: c.msg.Message.ID, Limit: 1}
-	msgs, err := c.session.Channel(c.msg.Message.ChannelID).GetMessages(&params)
-	if err != nil {
-		log.Error(err)
-		c.session.ReactWithThumbsDown(c.msg.Message)
-		return
+	var emojiString, emoteArgs string
+	emojiIndex := c.emojiParser.FindStringIndex(c.msg.Message.Content)
+	if emojiIndex != nil {
+		emojiString = c.msg.Message.Content[emojiIndex[0] : emojiIndex[1]-1]
+		emoteArgs = c.msg.Message.Content[emojiIndex[1]:]
+		
+	} else {
+		params := disgord.GetMessagesParams{Before: c.msg.Message.ID, Limit: 1}
+		msgs, err := c.session.Channel(c.msg.Message.ChannelID).GetMessages(&params)
+		
+		if err != nil {
+			log.Error(err)
+			c.session.ReactWithThumbsDown(c.msg.Message)
+			return
+		}
+		index := c.emojiParser.FindStringIndex(msgs[0].Content)
+		if index == nil {
+			log.Error("Emoji string not found in content ", msgs[0].Content)
+			c.session.ReactWithThumbsDown(c.msg.Message)
+			return
+		}
+		emojiString = msgs[0].Content[index[0] : index[1]-1]
+		emoteArgs = c.msg.Message.Content
 	}
-	index := c.compiledRegexp.FindStringIndex(msgs[0].Content)
-	if index == nil {
-		log.Error("Emoji string not found in content ", msgs[0].Content)
-		c.session.ReactWithThumbsDown(c.msg.Message)
-		return
-	}
-	parsedEmojiString := msgs[0].Content[index[0] : index[1]-1]
-	firstColon := strings.Index(parsedEmojiString, ":")
-	lastColon := strings.LastIndex(parsedEmojiString, ":")
+	
+	firstColon := strings.Index(emojiString, ":")
+	lastColon := strings.LastIndex(emojiString, ":")
 	//Get is animated
 	extension := ".png"
-	if parsedEmojiString[1:firstColon] == "a" {
+	if emojiString[1:firstColon] == "a" {
 		extension = ".gif"
 	}
 	//Get emoji name
-	emojiName := parsedEmojiString[firstColon+1 : lastColon]
+	emojiName := emojiString[firstColon+1 : lastColon]
 	//Get Emoji ID
-	emojiId := parsedEmojiString[lastColon+1:]
+	emojiId := emojiString[lastColon+1:]
 
 	response := doHttpGetRequest(discordEmojiCDN + string(emojiId) + extension)
-
-	emojiFilters := []func (image.Image) gift.Filter{
-		func(img image.Image) gift.Filter {return gift.Resize(img.Bounds().Max.X*2, img.Bounds().Max.Y*2, gift.BoxResampling)},
+	var emojiFilters []func(image.Image) gift.Filter
+	if len(emoteArgs) > 0 {
+		emojiFilters = append(emojiFilters, parseArguments(emoteArgs)...)
 	}
-
-	if(len(c.msg.Message.Content) > 0) {
-		emojiFilters = append(emojiFilters, parseArguments(c.msg.Message.Content)...)
-	}
+	emojiFilters = append(emojiFilters,
+		func(img image.Image) gift.Filter {
+			return gift.Resize(img.Bounds().Max.X*2, img.Bounds().Max.Y*2, gift.BoxResampling)
+		})
 
 	var reader io.Reader
+	var err error
 	if extension == ".png" {
 		reader, err = filterPng(response, emojiFilters)
 	} else if extension == ".gif" {
@@ -109,22 +121,24 @@ func parseArguments(args string) []func(image.Image) gift.Filter {
 	for _, s := range strings.ToLower(args) {
 		switch s {
 		case 'p':
-			f := func(img image.Image) gift.Filter {return gift.Pixelate(5)}
+			f := func(img image.Image) gift.Filter { return gift.Pixelate(5) }
 			fs = append(fs, f)
 		case 'i':
-			f := func(img image.Image) gift.Filter {return gift.Invert()}
+			f := func(img image.Image) gift.Filter { return gift.Invert() }
 			fs = append(fs, f)
 		case 'r':
-			f := func(img image.Image) gift.Filter {return gift.Rotate90()}
+			f := func(img image.Image) gift.Filter { return gift.Rotate90() }
 			fs = append(fs, f)
 		case 'b':
-			f := func(img image.Image) gift.Filter {return gift.GaussianBlur(3)}
+			f := func(img image.Image) gift.Filter { return gift.GaussianBlur(3) }
 			fs = append(fs, f)
 		case 'h':
-			f := func(img image.Image) gift.Filter {return gift.Hue(90)}
+			f := func(img image.Image) gift.Filter { return gift.Hue(90) }
 			fs = append(fs, f)
 		case 'c':
-			f := func(img image.Image) gift.Filter {return gift.CropToSize(rand.Intn(img.Bounds().Max.X),rand.Intn(img.Bounds().Max.Y), randomAnchor())}
+			f := func(img image.Image) gift.Filter {
+				return gift.CropToSize(rand.Intn(img.Bounds().Max.X), rand.Intn(img.Bounds().Max.Y), randomAnchor())
+			}
 			fs = append(fs, f)
 		}
 	}
@@ -155,7 +169,7 @@ func randomAnchor() gift.Anchor {
 	return gift.CenterAnchor
 }
 
-func filterPng(src io.Reader, fs []func (image.Image) gift.Filter) (io.Reader,error) {
+func filterPng(src io.Reader, fs []func(image.Image) gift.Filter) (io.Reader, error) {
 	img, _, err := image.Decode(src)
 	giftFilter := gift.New()
 	for _, f := range fs {
@@ -174,7 +188,7 @@ func filterPng(src io.Reader, fs []func (image.Image) gift.Filter) (io.Reader,er
 	return bytes.NewReader(buff.Bytes()), nil
 }
 
-func filterGif(src io.Reader, fs []func (image.Image) gift.Filter) (io.Reader, error) {
+func filterGif(src io.Reader, fs []func(image.Image) gift.Filter) (io.Reader, error) {
 	srcGif, err := gif.DecodeAll(src)
 	if err != nil {
 		return nil, err
