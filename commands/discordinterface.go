@@ -74,4 +74,6 @@ type Guild interface {
 
 type Channel interface {
 	GetMessages(params *disgord.GetMessagesParams, flags ...disgord.Flag) ([]*disgord.Message, error)
+	DeleteMessages(params *disgord.DeleteMessagesParams, flags ...disgord.Flag) error
+	Message(id Snowflake) disgord.MessageQueryBuilder
 }
