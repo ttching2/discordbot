@@ -50,7 +50,10 @@ func (c *emojifyCommand) ExecuteMessageCreateCommand() {
 	if emojiIndex != nil {
 		emojiString = c.msg.Message.Content[emojiIndex[0] : emojiIndex[1]-1]
 		emoteArgs = c.msg.Message.Content[emojiIndex[1]:]
-		
+		err := c.session.Channel(c.msg.Message.ChannelID).Message(c.msg.Message.ID).Delete()
+		if err != nil {
+			log.Error(err)
+		}
 	} else {
 		params := disgord.GetMessagesParams{Before: c.msg.Message.ID, Limit: 1}
 		msgs, err := c.session.Channel(c.msg.Message.ChannelID).GetMessages(&params)
