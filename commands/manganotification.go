@@ -167,7 +167,11 @@ func getHtmlPage(mangaLink string) (*html.Node, error) {
 
 func checkEarlyManga(node *html.Node) bool {
 	c := earlymangacrawler{0, false}
-	body := node.FirstChild.NextSibling.FirstChild.NextSibling.NextSibling
+	// body := node.FirstChild.NextSibling.FirstChild.NextSibling.NextSibling
+	body := traverseNodes(node, "fnfnn")
+	if body == nil {
+		return false
+	}
 	c.isThereNewChapter(body)
 	return c.newChapter
 }
@@ -214,15 +218,75 @@ func isChapterNew(n *html.Node) bool {
 }
 
 func findNewMangeloChapter(n *html.Node) bool {
-	body := n.FirstChild.FirstChild.NextSibling
-	bodySite := body.LastChild.PrevSibling.PrevSibling.PrevSibling.PrevSibling.PrevSibling.PrevSibling.PrevSibling
-	containerMain := bodySite.FirstChild.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling
-	containerMainLeft := containerMain.FirstChild.NextSibling
-	chapterList := containerMainLeft.FirstChild.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling
-	chapterRows := chapterList.FirstChild.NextSibling.NextSibling.NextSibling
-	firstRow := chapterRows.FirstChild.NextSibling
-	time := firstRow.FirstChild.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling
+	// body := n.FirstChild.FirstChild.NextSibling
+	body := traverseNodes(n, "ffn")
+	if body == nil {
+		return false
+	}
+	// bodySite := body.LastChild.PrevSibling.PrevSibling.PrevSibling.PrevSibling.PrevSibling.PrevSibling.PrevSibling
+	bodySite := traverseNodes(body, "lppppppp")
+	if bodySite == nil {
+		return false
+	}
+	// containerMain := bodySite.FirstChild.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling
+	containerMain := traverseNodes(bodySite, "fnnnnn")
+	if containerMain == nil {
+		return false
+	}
+	// containerMainLeft := containerMain.FirstChild.NextSibling
+	containerMainerLeft := traverseNodes(containerMain, "fn")
+	if containerMainerLeft == nil {
+		return false
+	}
+	// chapterList := containerMainLeft.FirstChild.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling
+	chapterList := traverseNodes(containerMainerLeft, "fnnnnnnnnnnn")
+	if chapterList == nil {
+		return false
+	}
+	// chapterRows := chapterList.FirstChild.NextSibling.NextSibling.NextSibling
+	chapterRows := traverseNodes(chapterList, "fnnn")
+	if chapterRows == nil {
+		return false
+	}
+	// firstRow := chapterRows.FirstChild.NextSibling
+	firstRow := traverseNodes(chapterRows, "fn")
+	if firstRow == nil {
+		return false
+	}
+	// time := firstRow.FirstChild.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling
+	time := traverseNodes(firstRow, "fnnnnn")
+	if time == nil {
+		return false
+	}
 	return findMangeloTime(time)
+}
+
+/*
+l - last child
+f - first child
+p - prev sibling
+n - next sibling
+*/
+func traverseNodes(n *html.Node, path string) *html.Node {
+	currentNode := n
+	for _, s := range strings.ToLower(path) {
+		if currentNode == nil {
+			return nil
+		}
+		switch s {
+		case 'l':
+			currentNode = currentNode.LastChild
+		case 'f':
+			currentNode = currentNode.FirstChild
+		case 'p':
+			currentNode = currentNode.PrevSibling
+		case 'n':
+			currentNode = currentNode.NextSibling
+		default:
+			return nil
+		}
+	}
+	return currentNode
 }
 
 func findMangeloTime(n *html.Node) bool {
