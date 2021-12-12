@@ -150,14 +150,13 @@ func searchForNewChapter(mangaLink MangaLink, s DiscordSession) {
 func getHtmlPage(mangaLink string) (*html.Node, error) {
 	req, err := http.NewRequest("GET", mangaLink, nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	req.Header.Add("Accept", "*/*")
 	req.Header.Add("Accept-Language", "en-US,en;q=0.9")
 	r, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Fatal(err)
 		return nil, err
 	}
 	node, _ := html.Parse(r.Body)

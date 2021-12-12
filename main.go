@@ -116,16 +116,17 @@ func initializeBot(s disgord.Session, config botConfig) (*discordBot, *middlewar
 
 	discordSession := commands.NewSimpleDiscordSession(s)
 	customMiddleWare, err := newMiddlewareHolder(discordSession, jobQueue, repos, twitterClient, strawpollClient, challongeClient)
+	
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	discordBot := &discordBot{jobQueue: jobQueue}
 
 	scheduler := gocron.NewScheduler(time.UTC)
 	scheduler.Every(1).Hour().Do(commands.LookForNewMangaChapter, repos.mangaLinkRepo, discordSession)
 
 	scheduler.StartAsync()
-
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	return discordBot, customMiddleWare
 }
