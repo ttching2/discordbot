@@ -30,7 +30,7 @@ func (c *Client) GetPoll(ID string) (*StrawPollResults, error) {
 		return nil, err
 	}
 
-	req.Header.Add("API-KEY", c.apiKey)
+	req.Header.Add("X-API-KEY", c.apiKey)
 	res, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err

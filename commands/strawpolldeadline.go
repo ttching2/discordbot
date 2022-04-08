@@ -61,7 +61,8 @@ func (c *strawpollDeadlineCommand) ExecuteMessageCreateCommand() {
 	poll, _ := c.strawpollClient.GetPoll(pollID)
 
 	now := time.Now()
-	if now.After(poll.Content.Deadline) {
+	pollDeadline := time.Unix(poll.Poll.PollConfig.DeadlineAt, 0)
+	if now.After(pollDeadline) {
 		c.session.SendSimpleMessage(msg.ChannelID, "Could not set timer for poll. Deadline either missing or deadline has passed.")
 		return
 	}
@@ -74,7 +75,7 @@ func (c *strawpollDeadlineCommand) ExecuteMessageCreateCommand() {
 	roles, _ := c.session.Guild(msg.GuildID).GetRoles()
 	role := FindRoleByName(roleName, roles)
 
-	deadlineDuration := poll.Content.Deadline.Sub(now)
+	deadlineDuration := pollDeadline.Sub(now)
 	timeToWait := time.NewTimer(deadlineDuration)
 	strawpollDeadline := &StrawpollDeadline{
 		User:        c.user.UsersID,
@@ -91,14 +92,14 @@ func (c *strawpollDeadlineCommand) ExecuteMessageCreateCommand() {
 			log.WithField("pollid",pollID).Error("Error fetching strawpoll ", err)
 			return
 		}
-		pollAnswers := poll.Content.Poll.PollAnswers
+		pollAnswers := poll.Poll.PollOptions
 		topAnswer := pollAnswers[0]
 		for _, answer := range pollAnswers {
-			if answer.Votes > topAnswer.Votes {
+			if answer.VoteCount > topAnswer.VoteCount {
 				topAnswer = answer
 			}
 		}
-		result := fmt.Sprintf("%s Strawpoll has closed. The top vote for %s is %s with %d votes.", role.Mention(), poll.Content.Title, topAnswer.Answer, topAnswer.Votes)
+		result := fmt.Sprintf("%s Strawpoll has closed. The top vote for %s is %s with %d votes.", role.Mention(), poll.Poll.Title, topAnswer.Value, topAnswer.VoteCount)
 		c.session.SendSimpleMessage(channel.ID, result)
 		err = c.repo.DeleteStrawpollDeadlineByID(strawpollDeadline.StrawpollDeadlineID)
 		if err != nil {
@@ -124,23 +125,24 @@ func RestartStrawpollDeadlines(client disgord.Session, dbClient StrawpollDeadlin
 		}
 
 		now := time.Now()
-		if now.After(poll.Content.Deadline) {
+		pollDeadline := time.Unix(poll.Poll.PollConfig.DeadlineAt, 0)
+		if now.After(pollDeadline) {
 			dbClient.DeleteStrawpollDeadlineByID(strawpoll.StrawpollDeadlineID)
 			continue
 		}
 
-		timeToWait := time.NewTimer(poll.Content.Deadline.Sub(now))
+		timeToWait := time.NewTimer(pollDeadline.Sub(now))
 		go func(strawpoll StrawpollDeadline) {
 			<-timeToWait.C
 			poll, _ := strawpollClient.GetPoll(strawpoll.StrawpollID)
-			pollAnswers := poll.Content.Poll.PollAnswers
+			pollAnswers := poll.Poll.PollOptions
 			topAnswer := pollAnswers[0]
 			for _, answer := range pollAnswers {
-				if answer.Votes > topAnswer.Votes {
+				if answer.VoteCount > topAnswer.VoteCount {
 					topAnswer = answer
 				}
 			}
-			result := fmt.Sprintf("<@&%s> Strawpoll has closed. The top vote for %s is %s with %d votes.", strawpoll.Role, poll.Content.Title, topAnswer.Answer, topAnswer.Votes)
+			result := fmt.Sprintf("<@&%s> Strawpoll has closed. The top vote for %s is %s with %d votes.", strawpoll.Role, poll.Poll.Title, topAnswer.Value, topAnswer.VoteCount)
 			client.Channel(strawpoll.Channel).CreateMessage(&disgord.CreateMessageParams{Content: result})
 			dbClient.DeleteStrawpollDeadlineByID(strawpoll.StrawpollDeadlineID)
 		}(strawpoll)

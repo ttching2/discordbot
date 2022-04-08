@@ -1,84 +1,78 @@
 package strawpoll_test
 
 import (
+	"discordbot/strawpoll"
 	"fmt"
-	"log"
-	"net/http"
-	"strings"
+	"image"
+	"os"
 	"testing"
 	"time"
 
-	"golang.org/x/net/html"
+	"golang.org/x/image/draw"
 )
 
 func thingy(v string) {
 	fmt.Println(v)
 }
-
+//Channel 803072579765403669
 func TestThing(t *testing.T) {
-	req, err := http.NewRequest("GET", "https://manganato.com/manga-hd984612", nil)
-	if err != nil {
-		log.Fatal(err)
-	}
+	client := strawpoll.New(strawpoll.StrawPollConfig{
+		ApiKey: os.Getenv("STRAWPOLL_TOKEN"),
+	})
+	r, _ := client.GetPoll("05Zd1mAaEy6")
+	thing := time.Unix(r.Poll.PollConfig.DeadlineAt, 0)
+	fmt.Println(thing)
+	// client := disgord.New(disgord.Config{
+	// 	BotToken: os.Getenv("DISCORD_TOKEN"),
+	// })
+	// f1, err := os.Open("imgs.jpg")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// _, errUpload := client.WithContext(context.Background()).SendMsg(803072579765403669, &disgord.CreateMessageParams{
+	// 	Content: "",
+	// 	Files: []disgord.CreateMessageFileParams{
+	// 		{f1, "myfavouriteimage.jpg", false},
+	// 	},
+	// })
+	// if errUpload != nil {
+	// 	client.Logger().Error("unable to upload images.", errUpload)
+	// }
+	// req, err := http.NewRequest("GET", "https://cdn.discordapp.com/emojis/776012671936888843.png", nil)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	req.Header.Add("Accept", "*/*")
-	req.Header.Add("Accept-Language", "en-US,en;q=0.9")
-	r, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer r.Body.Close()
-	node, _ := html.Parse(r.Body)
-	body := node.FirstChild.FirstChild.NextSibling
-	bodySite := body.LastChild.PrevSibling.PrevSibling.PrevSibling.PrevSibling.PrevSibling.PrevSibling.PrevSibling
-	containerMain := bodySite.FirstChild.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling
-	containerMainLeft := containerMain.FirstChild.NextSibling
-	chapterList := containerMainLeft.FirstChild.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling
-	chapterRows := chapterList.FirstChild.NextSibling.NextSibling.NextSibling
-	firstRow := chapterRows.FirstChild.NextSibling
-	time := firstRow.FirstChild.NextSibling.NextSibling.NextSibling.NextSibling.NextSibling
-	fmt.Println(findTime(time))
-	thing := thing{body, 0, false}
-	thing.traverse(body)
-	fmt.Println(thing.newChapter)
+	// r, err := http.DefaultClient.Do(req)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// defer r.Body.Close()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// img,_, err := image.Decode(r.Body)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// out, _ := os.Create("./img.png")
+    // defer out.Close()
+	// filter := gift.New(
+	// 	gift.Resize(img.Bounds().Max.X*2, img.Bounds().Max.Y*2, gift.BoxResampling),
+	// )
+	// dr := image.NewRGBA(filter.Bounds(img.Bounds()))
+	// filter.Draw(dr, img)
+	// err = png.Encode(out,dr)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 }
 
-type thing struct {
-	n          *html.Node
-	row        int
-	newChapter bool
-}
-
-func (t *thing) traverse(n *html.Node) {
-	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		if child.Data == "div" {
-			for _, attr := range child.Attr {
-				if attr.Key == "class" && strings.Contains(attr.Val, "chapter-row") {
-					if t.row == 2 {
-						t.row++
-						t.newChapter = findTime(child)
-						return
-					}
-					t.row++
-				}
-			}
-		}
-		t.traverse(child)
-	}
-}
-
-func findTime(n *html.Node) bool {
-		for _, attr := range n.Attr {
-			if attr.Key == "title" {
-				releaseTime, err := time.Parse("Jan 2,2006 15:04", attr.Val)
-				if err != nil {
-					fmt.Print(err)
-				} else {	
-					now := time.Now().Add(time.Hour * 3)
-					return now.Sub(releaseTime).Hours() <= 1
-				}
-			}
-		}
-	
-	return false
+// src   - source image
+// rect  - size we want
+// scale - scaler
+func scaleTo(src image.Image, rect image.Rectangle, scale draw.Scaler) image.Image {
+	dst := image.NewRGBA(rect)
+	scale.Scale(dst, rect, src, src.Bounds(), draw.Over, nil)
+	return dst
 }

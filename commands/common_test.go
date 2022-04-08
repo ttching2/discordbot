@@ -66,15 +66,15 @@ var commonMockGuild = mockGuild{
 	},
 }
 
-func (g *mockGuild) GetChannels(...disgord.Flag) ([]*disgord.Channel, error) {
+func (g *mockGuild) GetChannels() ([]*disgord.Channel, error) {
 	return g.channels, nil
 }
 
-func (g *mockGuild) GetRoles(flags ...disgord.Flag) ([]*disgord.Role, error) {
+func (g *mockGuild) GetRoles() ([]*disgord.Role, error) {
 	return g.roles, nil
 }
 
-func (g *mockGuild) GetEmojis(flags ...disgord.Flag) ([]*disgord.Emoji, error) {
+func (g *mockGuild) GetEmojis() ([]*disgord.Emoji, error) {
 	return g.emojis, nil
 }
 
