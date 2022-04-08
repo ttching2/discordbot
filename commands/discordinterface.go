@@ -66,14 +66,14 @@ func createSimpleDisgordMessage(m string) *disgord.CreateMessageParams {
 }
 
 type Guild interface {
-	GetChannels(...disgord.Flag) ([]*disgord.Channel, error)
-	GetRoles(flags ...disgord.Flag) ([]*disgord.Role, error)
-	GetEmojis(flags ...disgord.Flag) ([]*disgord.Emoji, error)
+	GetChannels() ([]*disgord.Channel, error)
+	GetRoles() ([]*disgord.Role, error)
+	GetEmojis() ([]*disgord.Emoji, error)
 	Member(userID Snowflake) disgord.GuildMemberQueryBuilder
 }
 
 type Channel interface {
-	GetMessages(params *disgord.GetMessagesParams, flags ...disgord.Flag) ([]*disgord.Message, error)
-	DeleteMessages(params *disgord.DeleteMessagesParams, flags ...disgord.Flag) error
+	GetMessages(params *disgord.GetMessagesParams) ([]*disgord.Message, error)
+	DeleteMessages(params *disgord.DeleteMessagesParams) error
 	Message(id Snowflake) disgord.MessageQueryBuilder
 }

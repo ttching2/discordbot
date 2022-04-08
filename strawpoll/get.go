@@ -1,73 +1,37 @@
 package strawpoll
 
-import "time"
-
-const strawpollGetEndpoint = "https://strawpoll.com/api/poll/"
+const strawpollGetEndpoint = "https://api.strawpoll.com/v2/polls/"
 
 type StrawPollGetClient interface {
 	GetPoll(ID string) (*StrawPollResults, error)
 }
 
 type StrawPollResults struct {
-	Content Content
+	Poll Poll
 }
 
-type Content struct {
+type Poll struct {
 	Comments         int
-	CreatedAt        time.Time `json:"created_at"`
-	Creator          Creator
-	Deadline         time.Time
-	HasWebhooks      int 	   `json:"has_webhooks"`
+	CreatedAt        int64 		    `json:"created_at"`
+	PollConfig		 PollConfig	    `json:"poll_config"`
+	PollOptions      []PollOptions  `json:"poll_answers"`
+	HasWebhooks      int 	        `json:"has_webhooks"`
 	ID               string
-	Media            Media
-	OriginalDeadline time.Time `json:"original_deadline"`
+	OriginalDeadline int64 			`json:"original_deadline"`
 	Pin              string
-	Poll             Poll
 	Status           string
 	Title            string
 	Type             string
 }
 
-type Creator struct {
-	AvatarPath    string `json:"avatar_path"`
-	DisplayName   string
-	MonthlyPoints int 	 `json:"monthly_points"`
-	Username      string
+type PollConfig struct {
+	DeadlineAt	int64 `json:"deadline_at"`
 }
 
-type Media struct {
-	Hash   string
-	Path   string
-	Unused int
-}
-
-type Poll struct {
-	IsPointsEligible int           `json:"is_points_eligible"`
-	IsVotable        int          `json:"is_votable"`
-	LastVoteAt       time.Time     `json:"last_vote_at"`
-	OriginalTitle    string        `json:"original_title"`
-	PollAnswers      []PollAnswer  `json:"poll_answers"`
-	PollInfo         PollInfo      `json:"poll_info"`
-	Private          int
-	Title            string
-	TotalVoters      int 		   `json:"total_voters"`
-	TotalVotes       int 		   `json:"total_votes"`
-}
-
-type PollAnswer struct {
-	Answer         string
+type PollOptions struct {
+	Value          string
 	ID             string
-	OriginalAnswer string `json:"original_answer"`
-	Sorting        int
-	Type           string
-	Votes          int
-}
-
-type PollInfo struct {
-	Captcha             int
-	CreatorCountry      string 	  `json:"creator_country"`
-	Description         string
-	// EditedAt            time.Time `json:"edited_at"` causes a time parse error
-	OriginalDescription string    `json:"original_description"`
-	ShowResults         int       `json:"show_results"`
+	MaxVotes	   int `json:"max_votes"`
+	Position	   int
+	VoteCount      int `json:"vote_count"`
 }

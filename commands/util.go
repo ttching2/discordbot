@@ -13,7 +13,7 @@ import (
 //FindChannelByName helper function to find a channel by name
 func findChannelByName(name string, channels []*disgord.Channel) *disgord.Channel {
 	for _, channel := range channels {
-		if strings.ToLower(channel.Name) == strings.ToLower(name) {
+		if strings.EqualFold(channel.Name, name) {
 			return channel
 		}
 	}
@@ -32,7 +32,7 @@ func findChannelByID(id disgord.Snowflake, channels []*disgord.Channel) *disgord
 //FindRoleByName helper function
 func FindRoleByName(name string , roles []*disgord.Role) *disgord.Role {
 	for _, role := range roles {
-		if strings.ToLower(role.Name) == strings.ToLower(name) {
+		if strings.EqualFold(role.Name, name) {
 			return role
 		}
 	}
@@ -42,7 +42,7 @@ func FindRoleByName(name string , roles []*disgord.Role) *disgord.Role {
 //FindEmojiByName helper function
 func FindEmojiByName(name string, emojis []*disgord.Emoji) *disgord.Emoji {
 	for _, emoji := range emojis {
-		if strings.ToLower(emoji.Name) == strings.ToLower(name) {
+		if strings.EqualFold(emoji.Name, name) {
 			return emoji
 		}
 	}

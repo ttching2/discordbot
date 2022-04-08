@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"image"
 	"image/gif"
-	_ "image/gif"
 	"image/png"
 	"io"
 	"math/rand"
@@ -202,7 +201,7 @@ func filterGif(src io.Reader, fs []func(image.Image) gift.Filter) (io.Reader, er
 	}
 	srcGif.Config.Height = giftFilter.Bounds(srcGif.Image[0].Rect).Max.Y
 	srcGif.Config.Width = giftFilter.Bounds(srcGif.Image[0].Rect).Max.X
-	for i, _ := range srcGif.Image {
+	for i := range srcGif.Image {
 		frame := srcGif.Image[i]
 		dst := image.NewPaletted(giftFilter.Bounds(frame.Bounds()), frame.Palette)
 		giftFilter.Draw(dst, frame)
