@@ -14,7 +14,7 @@ type Poll struct {
 	Comments         int
 	CreatedAt        int64 		    `json:"created_at"`
 	PollConfig		 PollConfig	    `json:"poll_config"`
-	PollOptions      []PollOptions  `json:"poll_answers"`
+	PollOptions      []PollOptions  `json:"poll_options"`
 	HasWebhooks      int 	        `json:"has_webhooks"`
 	ID               string
 	OriginalDeadline int64 			`json:"original_deadline"`
