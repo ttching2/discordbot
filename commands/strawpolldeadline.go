@@ -57,7 +57,7 @@ func (c *strawpollDeadlineCommand) ExecuteMessageCreateCommand() {
 		return
 	}
 
-	pollID := u.Path[1:]
+	pollID := u.Path[7:]
 	poll, _ := c.strawpollClient.GetPoll(pollID)
 
 	now := time.Now()
